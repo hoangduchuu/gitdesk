@@ -1,0 +1,325 @@
+import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react'
+import { layoutGraph } from '../../shared/graph'
+import { buildGraphNodes, WIP_HASH, type GraphNode } from '../../shared/graph-nodes'
+import type { DiffTarget } from '../../shared/model'
+import type { RepoInfo } from '../../shared/types'
+import { createActions } from './actions'
+import { api } from './api'
+import { ChangesPanel } from './components/ChangesPanel'
+import { CommitGraph } from './components/CommitGraph'
+import { CommitPanel } from './components/CommitPanel'
+import { ConflictView } from './components/ConflictView'
+import { action, ContextMenu, type MenuItem, type MenuRequest } from './components/ContextMenu'
+import { DiffView, type StagingOptions } from './components/DiffView'
+import { OperationBanner } from './components/OperationBanner'
+import { ProfilesDialog } from './components/ProfilesDialog'
+import { PromptDialog, type PromptRequest } from './components/PromptDialog'
+import { RebaseView } from './components/RebaseView'
+import { SettingsDialog } from './components/SettingsDialog'
+import { Sidebar } from './components/Sidebar'
+import { StashPanel } from './components/StashPanel'
+import { TerminalPanel } from './components/TerminalPanel'
+import { Toolbar } from './components/Toolbar'
+import { MessageDialog } from './components/MessageDialog'
+import { useRepository } from './hooks/useRepository'
+import { useT, useTCount } from './i18n'
+
+type Selection = { kind: 'wip' } | { kind: 'commit'; hash: string } | { kind: 'stash'; hash: string } | null
+
+type Center =
+  | { kind: 'graph' }
+  | { kind: 'diff'; target: DiffTarget; title: string; key: string }
+  | { kind: 'conflict'; path: string }
+  | { kind: 'rebase'; base: string }
+
+interface Props {
+  repo: RepoInfo
+  /** False while another tab is shown; the workspace stays mounted so its state survives. */
+  active: boolean
+  onOpen: () => void
+}
+
+/** One repository's window content: toolbar, sidebar, graph, details and terminal. */
+export function Workspace({ repo, active, onOpen }: Props) {
+  const t = useT()
+  const tCount = useTCount()
+  const [selection, setSelection] = useState<Selection>(null)
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
+  const [center, setCenter] = useState<Center>({ kind: 'graph' })
+  const [reveal, setReveal] = useState<string | null>(null)
+  const [prompt, setPrompt] = useState<PromptRequest | null>(null)
+  const [menu, setMenu] = useState<MenuRequest | null>(null)
+  const [profilesOpen, setProfilesOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  /** Bumped when the profiles dialog closes, so pickers reload. */
+  const [profileVersion, setProfileVersion] = useState(0)
+  /** null until first opened; the shell keeps running while the panel is hidden. */
+  const [terminal, setTerminal] = useState<'shown' | 'hidden' | null>(null)
+  const toggleTerminal = useCallback(() => setTerminal((current) => (current === 'shown' ? 'hidden' : 'shown')), [])
+
+  // Ctrl+` toggles the terminal, as in VS Code.
+  useEffect(() => {
+    if (!active) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.ctrlKey && event.key === '`') {
+        event.preventDefault()
+        toggleTerminal()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [toggleTerminal, active])
+  const controller = useRepository(repo, active)
+  const { data, busy, error, notice, setError, setNotice, run } = controller
+  const gitdesk = api()
+
+  const rows = useMemo(
+    () => (data ? layoutGraph(buildGraphNodes(data.commits, data.stashes, data.status)) : []),
+    [data]
+  )
+  const status = data?.status ?? null
+  const changeCount = status ? status.staged.length + status.unstaged.length + status.conflicted.length : 0
+
+  // Leave the working-changes panel once there is nothing left in it.
+  useEffect(() => {
+    if (selection?.kind === 'wip' && changeCount === 0) setSelection(null)
+  }, [selection, changeCount])
+
+  const closeMenu = useCallback(() => setMenu(null), [])
+
+  const path = repo.path
+  const closeCenter = (): void => setCenter({ kind: 'graph' })
+  const actions = createActions({
+    path,
+    controller,
+    status,
+    onConflicts: () => {
+      setSelection({ kind: 'wip' })
+      closeCenter()
+    },
+    onSelectionGone: () => setSelection(null),
+    prompt: setPrompt,
+    openRebase: (base) => setCenter({ kind: 'rebase', base }),
+    t,
+    tCount
+  })
+
+  const openMenu = (items: MenuItem[], event: MouseEvent): void => {
+    event.preventDefault()
+    setMenu({ x: event.clientX, y: event.clientY, items })
+  }
+
+  /** Picked commits in graph order (newest first), including the clicked one. */
+  const pickedInOrder = (clicked: string): string[] => {
+    const all = new Set([...picked, clicked])
+    return rows.filter((row) => row.node.kind === 'commit' && all.has(row.node.hash)).map((row) => row.node.hash)
+  }
+
+  const selectNode = (node: GraphNode, additive: boolean): void => {
+    if (additive && node.kind === 'commit') {
+      setPicked((current) => {
+        const next = new Set(current)
+        if (next.has(node.hash)) next.delete(node.hash)
+        else next.add(node.hash)
+        return next
+      })
+      return
+    }
+    setPicked(new Set())
+    setSelection(node.kind === 'wip' ? { kind: 'wip' } : { kind: node.kind, hash: node.hash })
+  }
+
+  const nodeMenu = (node: GraphNode, event: MouseEvent): void => {
+    if (node.kind === 'commit') {
+      const hashes = picked.size > 0 ? pickedInOrder(node.hash) : [node.hash]
+      openMenu(actions.commitMenu(node.commit, hashes), event)
+    } else if (node.kind === 'stash') {
+      openMenu(actions.stashMenu(node.stash), event)
+    } else {
+      openMenu([action(t('app.stashChanges'), actions.promptStash, { icon: 'stash' })], event)
+    }
+  }
+
+  const openDiff = (target: DiffTarget, title: string, key: string): void =>
+    setCenter({ kind: 'diff', target, title, key })
+
+  const staging = (target: DiffTarget): StagingOptions | undefined =>
+    target.kind === 'working' && !target.untracked
+      ? {
+          source: target.staged ? 'staged' : 'unstaged',
+          apply: async (request) =>
+            (
+              await run(request.action === 'discard' ? t('app.discarding') : t('app.updatingIndex'), () =>
+                gitdesk.applySelection(path, request)
+              )
+            ).ok
+        }
+      : undefined
+
+  const selectedCommit =
+    selection?.kind === 'commit' ? data?.commits.find((commit) => commit.hash === selection.hash) ?? null : null
+  const selectedStash =
+    selection?.kind === 'stash' ? data?.stashes.find((stash) => stash.hash === selection.hash) ?? null : null
+  const centerKey = center.kind === 'diff' ? center.key : center.kind === 'conflict' ? `conflict:${center.path}` : null
+
+  const revealCommit = (hash: string): void => {
+    setPicked(new Set())
+    setSelection({ kind: 'commit', hash })
+    setReveal(hash)
+    closeCenter()
+  }
+
+  return (
+    <div className="app">
+      <Toolbar
+        repo={repo}
+        status={status}
+        busy={busy}
+        stashCount={data?.stashes.length ?? 0}
+        onOpen={onOpen}
+        onFetch={() => void run(t('app.fetching'), () => gitdesk.fetch(path))}
+        onPull={() => void run(t('app.pulling'), () => gitdesk.pull(path)).then(actions.reportMerge)}
+        onPush={() => void run(t('app.pushing'), () => gitdesk.push(path))}
+        onBranch={() => actions.promptCreateBranch(null)}
+        onStash={actions.promptStash}
+        onPop={() => data?.stashes[0] && actions.popStash(data.stashes[0])}
+        onProfiles={() => setProfilesOpen(true)}
+        terminalOpen={terminal === 'shown'}
+        onTerminal={toggleTerminal}
+        onSettings={() => setSettingsOpen(true)}
+      />
+      {error ? (
+        <MessageDialog kind="error" message={error} onClose={() => setError(null)} />
+      ) : (
+        notice && <MessageDialog kind="notice" message={notice} onClose={() => setNotice(null)} />
+      )}
+      {status && (
+        <OperationBanner
+          status={status}
+          onContinue={() => void run(t('app.continuing'), () => gitdesk.continueOperation(path)).then(actions.reportMerge)}
+          onAbort={() => {
+            if (window.confirm(t('app.abortConfirm'))) {
+              void run(t('app.aborting'), () => gitdesk.abortOperation(path))
+            }
+          }}
+        />
+      )}
+
+      <div className="workspace">
+        {data ? (
+          <Sidebar
+            branches={data.branches}
+            stashes={data.stashes}
+            tags={data.tags}
+            selectedStash={selectedStash?.ref ?? null}
+            onSelectBranch={(branch) => revealCommit(branch.hash)}
+            onSelectTag={(tag) => revealCommit(tag.hash)}
+            onCheckout={actions.checkout}
+            onSelectStash={(stash) => {
+              setSelection({ kind: 'stash', hash: stash.hash })
+              closeCenter()
+            }}
+            onBranchMenu={(branch, event) => openMenu(actions.branchMenu(branch), event)}
+            onTagMenu={(tag, event) => openMenu(actions.tagMenu(tag), event)}
+            onStashMenu={(stash, event) => openMenu(actions.stashMenu(stash), event)}
+          />
+        ) : (
+          <nav className="sidebar" />
+        )}
+
+        <main className="center">
+          {!data && <p className="hint">{t('common.loadingRepository')}</p>}
+          {data && center.kind === 'graph' && (
+            <CommitGraph
+              rows={rows}
+              selectedHash={selection?.kind === 'wip' ? WIP_HASH : selection?.hash ?? null}
+              revealHash={reveal}
+              picked={picked}
+              onSelect={selectNode}
+              onContextMenu={nodeMenu}
+            />
+          )}
+          {center.kind === 'diff' && (
+            <DiffView
+              repo={path}
+              target={center.target}
+              title={center.title}
+              staging={staging(center.target)}
+              onClose={closeCenter}
+            />
+          )}
+          {center.kind === 'conflict' && (
+            <ConflictView key={center.path} repo={path} path={center.path} controller={controller} onClose={closeCenter} />
+          )}
+          {center.kind === 'rebase' && (
+            <RebaseView
+              key={center.base}
+              repo={path}
+              base={center.base}
+              onStart={async (steps) => {
+                const result = await run(t('app.rebasing'), () => gitdesk.interactiveRebase(path, center.base, steps))
+                actions.reportMerge(result)
+                return result.ok
+              }}
+              onClose={closeCenter}
+            />
+          )}
+        </main>
+
+        <aside className="details">
+          {selection?.kind === 'wip' && status && (
+            <ChangesPanel
+              repo={path}
+              status={status}
+              controller={controller}
+              selectedKey={centerKey}
+              onOpenDiff={openDiff}
+              onOpenConflict={(file) => setCenter({ kind: 'conflict', path: file })}
+              profileVersion={profileVersion}
+              onManageProfiles={() => setProfilesOpen(true)}
+            />
+          )}
+          {selectedCommit && (
+            <CommitPanel
+              repo={path}
+              commit={selectedCommit}
+              selectedKey={centerKey}
+              onOpenDiff={openDiff}
+              onPrompt={setPrompt}
+              onCreateBranch={(name, hash) => actions.createBranch(name, hash)}
+            />
+          )}
+          {selectedStash && (
+            <StashPanel
+              repo={path}
+              stash={selectedStash}
+              selectedKey={centerKey}
+              onOpenDiff={openDiff}
+              onApply={actions.applyStash}
+              onPop={actions.popStash}
+              onDrop={actions.dropStash}
+            />
+          )}
+          {!selection && <p className="hint">{t('app.selectDetails')}</p>}
+        </aside>
+      </div>
+
+      {terminal !== null && (
+        <TerminalPanel key={path} repo={path} visible={terminal === 'shown' && active} onClose={() => setTerminal('hidden')} />
+      )}
+
+      {prompt && <PromptDialog request={prompt} onClose={() => setPrompt(null)} />}
+      {menu && <ContextMenu request={menu} onClose={closeMenu} />}
+      {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
+      {profilesOpen && (
+        <ProfilesDialog
+          repo={path}
+          onClose={() => {
+            setProfilesOpen(false)
+            setProfileVersion((version) => version + 1)
+          }}
+        />
+      )}
+    </div>
+  )
+}

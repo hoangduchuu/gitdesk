@@ -1,0 +1,168 @@
+import type { ResetMode, SelectionRequest } from '../shared/api'
+import type {
+  Branch,
+  ChangeKind,
+  ConflictSide,
+  DiffTarget,
+  FileChange,
+  ProfileInput,
+  RebaseAction,
+  RebaseStep
+} from '../shared/model'
+import { insideRepo } from './git/paths'
+
+// Everything arriving over IPC is untrusted: check shapes before it reaches git.
+
+const fail = (what: string): never => {
+  throw new Error(`Invalid ${what}`)
+}
+
+export const requireString = (value: unknown, what: string): string =>
+  typeof value === 'string' ? value : fail(what)
+
+export const requireBoolean = (value: unknown, what: string): boolean =>
+  typeof value === 'boolean' ? value : fail(what)
+
+export const requireInteger = (value: unknown, what: string, min: number, max: number): number =>
+  typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max ? value : fail(what)
+
+const HASH = /^[0-9a-f]{7,64}$/
+export const requireHash = (value: unknown): string => {
+  const hash = requireString(value, 'commit hash')
+  return HASH.test(hash) ? hash : fail('commit hash')
+}
+
+export const requireRepoPath = (repo: string, value: unknown): string => {
+  const path = requireString(value, 'path')
+  insideRepo(repo, path)
+  return path
+}
+
+export const requirePaths = (repo: string, value: unknown): string[] => {
+  if (!Array.isArray(value) || value.length === 0) fail('path list')
+  return (value as unknown[]).map((path) => requireRepoPath(repo, path))
+}
+
+const CHANGE_KINDS: readonly ChangeKind[] = ['added', 'modified', 'deleted', 'renamed', 'copied', 'typechange', 'untracked']
+
+export const requireFileChanges = (repo: string, value: unknown): FileChange[] => {
+  if (!Array.isArray(value) || value.length === 0) fail('file list')
+  return (value as unknown[]).map((item) => {
+    const change = item as Partial<FileChange> | null
+    if (!change || !CHANGE_KINDS.includes(change.kind as ChangeKind)) fail('file change')
+    return { path: requireRepoPath(repo, change!.path), kind: change!.kind as ChangeKind }
+  })
+}
+
+export const requireBranchKind = (value: unknown): Branch['kind'] =>
+  value === 'local' || value === 'remote' ? value : fail('branch kind')
+
+export const requireSide = (value: unknown): ConflictSide =>
+  value === 'ours' || value === 'theirs' ? value : fail('conflict side')
+
+export const requireNullableHash = (value: unknown): string | null => (value === null ? null : requireHash(value))
+
+const optionalPath = (repo: string, value: unknown): string | undefined =>
+  value === undefined ? undefined : requireRepoPath(repo, value)
+
+export const requireDiffTarget = (repo: string, value: unknown): DiffTarget => {
+  const target = value as Record<string, unknown> | null
+  if (!target || typeof target !== 'object') return fail('diff target')
+  const path = requireRepoPath(repo, target['path'])
+  switch (target['kind']) {
+    case 'working':
+      return {
+        kind: 'working',
+        path,
+        staged: requireBoolean(target['staged'], 'staged flag'),
+        untracked: requireBoolean(target['untracked'], 'untracked flag')
+      }
+    case 'commit': {
+      const origPath = optionalPath(repo, target['origPath'])
+      return { kind: 'commit', hash: requireHash(target['hash']), path, ...(origPath ? { origPath } : {}) }
+    }
+    case 'stash': {
+      const origPath = optionalPath(repo, target['origPath'])
+      return {
+        kind: 'stash',
+        ref: requireString(target['ref'], 'stash reference'),
+        path,
+        untracked: requireBoolean(target['untracked'], 'untracked flag'),
+        ...(origPath ? { origPath } : {})
+      }
+    }
+    default:
+      return fail('diff target kind')
+  }
+}
+
+export const requireHashes = (value: unknown): string[] => {
+  if (!Array.isArray(value) || value.length === 0) fail('commit list')
+  return (value as unknown[]).map(requireHash)
+}
+
+const RESET_MODES: readonly ResetMode[] = ['soft', 'mixed', 'hard']
+export const requireResetMode = (value: unknown): ResetMode =>
+  RESET_MODES.includes(value as ResetMode) ? (value as ResetMode) : fail('reset mode')
+
+export const requireNullableString = (value: unknown, what: string): string | null =>
+  value === null ? null : requireString(value, what)
+
+const requireLineIndexes = (value: unknown): number[] | null => {
+  if (value === null) return null
+  if (!Array.isArray(value) || value.length === 0) return fail('line selection')
+  return (value as unknown[]).map((index) => requireInteger(index, 'line index', 0, 1_000_000))
+}
+
+export const requireSelectionRequest = (repo: string, value: unknown): SelectionRequest => {
+  const request = value as Record<string, unknown> | null
+  if (!request || typeof request !== 'object') return fail('selection')
+  const source = request['source']
+  const action = request['action']
+  if (source !== 'unstaged' && source !== 'staged') return fail('selection source')
+  if (action !== 'stage' && action !== 'unstage' && action !== 'discard') return fail('selection action')
+  const selections = request['selections']
+  if (!Array.isArray(selections) || selections.length === 0) return fail('hunk selection')
+  return {
+    path: requireRepoPath(repo, request['path']),
+    source,
+    action,
+    selections: (selections as unknown[]).map((item) => {
+      const selection = item as Record<string, unknown> | null
+      if (!selection || typeof selection !== 'object') return fail('hunk selection')
+      return {
+        hunk: requireInteger(selection['hunk'], 'hunk index', 0, 1_000_000),
+        lines: requireLineIndexes(selection['lines'])
+      }
+    }),
+    expectedDiff: requireString(request['expectedDiff'], 'expected diff')
+  }
+}
+
+const REBASE_ACTIONS: readonly RebaseAction[] = ['pick', 'reword', 'squash', 'fixup', 'drop']
+export const requireRebaseSteps = (value: unknown): RebaseStep[] => {
+  if (!Array.isArray(value) || value.length === 0) fail('rebase plan')
+  return (value as unknown[]).map((item) => {
+    const step = item as Record<string, unknown> | null
+    if (!step || typeof step !== 'object' || !REBASE_ACTIONS.includes(step['action'] as RebaseAction)) {
+      return fail('rebase step')
+    }
+    const message = step['message']
+    return {
+      hash: requireHash(step['hash']),
+      action: step['action'] as RebaseAction,
+      ...(message === undefined ? {} : { message: requireString(message, 'commit message') })
+    }
+  })
+}
+
+export const requireProfileInput = (value: unknown): ProfileInput => {
+  const input = value as Record<string, unknown> | null
+  if (!input || typeof input !== 'object') return fail('profile')
+  const id = input['id']
+  return {
+    ...(id === undefined ? {} : { id: requireString(id, 'profile id') }),
+    name: requireString(input['name'], 'profile name'),
+    email: requireString(input['email'], 'profile email')
+  }
+}
