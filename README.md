@@ -17,6 +17,7 @@ npm run dev        # dev mode with hot reload; open a repo with the button
 npm test           # unit + integration tests (creates temporary git repos)
 npm run typecheck
 npm run build      # production build into out/
+npm run package    # macOS app into dist/mac-arm64/GitDesk.app
 ```
 
 Open a repository directly from the command line after building:
