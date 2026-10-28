@@ -1,6 +1,6 @@
 import type { WorkingTreeStatus } from '../../../shared/model'
 import type { RepoInfo } from '../../../shared/types'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { useT } from '../i18n'
 import { Icon, type IconName } from '../icons'
 
@@ -10,6 +10,8 @@ interface Props {
   busy: string | null
   stashCount: number
   onOpen: () => void
+  /** Click on the repository name: list the recent repositories to switch to. */
+  onRepoMenu?: (event: MouseEvent) => void
   onFetch: () => void
   onPull: () => void
   onPush: () => void
@@ -70,7 +72,7 @@ function useMinimumVisible(value: string | null): string | null {
 export function Toolbar(props: Props) {
   const t = useT()
   const { repo, status, busy, stashCount, onOpen, onFetch, onPull, onPush, onBranch, onStash, onPop, onProfiles } = props
-  const { terminalOpen, onTerminal, onSettings } = props
+  const { terminalOpen, onTerminal, onSettings, onRepoMenu } = props
   const running = useMinimumVisible(busy)
   const disabled = repo === null || running !== null
   const dirty = status !== null && status.staged.length + status.unstaged.length > 0
@@ -79,13 +81,14 @@ export function Toolbar(props: Props) {
     <header className="toolbar">
       <Tool icon="open" label={t('toolbar.open')} onClick={onOpen} disabled={busy !== null} />
       {repo && (
-        <span className="repo-title">
+        <button type="button" className="repo-title" onClick={onRepoMenu} disabled={onRepoMenu === undefined} title={t('toolbar.switchRepo')}>
           {repo.name}
           <span className="repo-branch">
             <Icon name="branch" size={13} />
             {status?.branch ?? t('toolbar.detachedHead')}
           </span>
-        </span>
+          <Icon name="down" size={13} />
+        </button>
       )}
       {running && <span className="busy">{running}…</span>}
       <span className="toolbar-actions">

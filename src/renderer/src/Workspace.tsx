@@ -6,10 +6,11 @@ import type { RepoInfo } from '../../shared/types'
 import { createActions } from './actions'
 import { api } from './api'
 import { ChangesPanel } from './components/ChangesPanel'
+import { ChoiceDialog, type ChoiceRequest } from './components/ChoiceDialog'
 import { CommitGraph } from './components/CommitGraph'
 import { CommitPanel } from './components/CommitPanel'
 import { ConflictView } from './components/ConflictView'
-import { action, ContextMenu, type MenuItem, type MenuRequest } from './components/ContextMenu'
+import { action, ContextMenu, heading, separator, type MenuItem, type MenuRequest } from './components/ContextMenu'
 import { DiffView, type StagingOptions } from './components/DiffView'
 import { OperationBanner } from './components/OperationBanner'
 import { ProfilesDialog } from './components/ProfilesDialog'
@@ -37,10 +38,12 @@ interface Props {
   /** False while another tab is shown; the workspace stays mounted so its state survives. */
   active: boolean
   onOpen: () => void
+  /** Show another repository in this tab. */
+  onSwitchRepo: (path: string) => void
 }
 
 /** One repository's window content: toolbar, sidebar, graph, details and terminal. */
-export function Workspace({ repo, active, onOpen }: Props) {
+export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
   const t = useT()
   const tCount = useTCount()
   const [selection, setSelection] = useState<Selection>(null)
@@ -48,6 +51,7 @@ export function Workspace({ repo, active, onOpen }: Props) {
   const [center, setCenter] = useState<Center>({ kind: 'graph' })
   const [reveal, setReveal] = useState<string | null>(null)
   const [prompt, setPrompt] = useState<PromptRequest | null>(null)
+  const [choice, setChoice] = useState<ChoiceRequest | null>(null)
   const [menu, setMenu] = useState<MenuRequest | null>(null)
   const [profilesOpen, setProfilesOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -99,6 +103,7 @@ export function Workspace({ repo, active, onOpen }: Props) {
     },
     onSelectionGone: () => setSelection(null),
     prompt: setPrompt,
+    choose: setChoice,
     openRebase: (base) => setCenter({ kind: 'rebase', base }),
     t,
     tCount
@@ -127,6 +132,25 @@ export function Workspace({ repo, active, onOpen }: Props) {
     }
     setPicked(new Set())
     setSelection(node.kind === 'wip' ? { kind: 'wip' } : { kind: node.kind, hash: node.hash })
+  }
+
+  /** GitHub Desktop-style repository switcher, opened from the repository name. */
+  const repoMenu = (event: MouseEvent): void => {
+    const anchor = event.currentTarget.getBoundingClientRect()
+    void gitdesk.getRecentRepos().then((result) => {
+      if (!result.ok) {
+        setError(result.error)
+        return
+      }
+      const recent = result.data.map((other) =>
+        action(other.name, () => onSwitchRepo(other.path), { icon: 'branch', disabled: other.path === path })
+      )
+      setMenu({
+        x: anchor.left,
+        y: anchor.bottom,
+        items: [heading(t('tabs.recent')), ...recent, separator, action(t('toolbar.open'), onOpen, { icon: 'open' })]
+      })
+    })
   }
 
   const nodeMenu = (node: GraphNode, event: MouseEvent): void => {
@@ -177,6 +201,7 @@ export function Workspace({ repo, active, onOpen }: Props) {
         busy={busy}
         stashCount={data?.stashes.length ?? 0}
         onOpen={onOpen}
+        onRepoMenu={repoMenu}
         onFetch={() => void run(t('app.fetching'), () => gitdesk.fetch(path))}
         onPull={() => void run(t('app.pulling'), () => gitdesk.pull(path)).then(actions.reportMerge)}
         onPush={() => void run(t('app.pushing'), () => gitdesk.push(path))}
@@ -309,6 +334,7 @@ export function Workspace({ repo, active, onOpen }: Props) {
       )}
 
       {prompt && <PromptDialog request={prompt} onClose={() => setPrompt(null)} />}
+      {choice && <ChoiceDialog request={choice} onClose={() => setChoice(null)} />}
       {menu && <ContextMenu request={menu} onClose={closeMenu} />}
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
       {profilesOpen && (

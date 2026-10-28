@@ -39,6 +39,13 @@ export function openRepoInTabs(state: TabsState, repo: RepoInfo, targetId: numbe
   return { tabs: [...state.tabs, tab], activeId: tab.id, nextId: state.nextId + 1 }
 }
 
+/** Show another repository in this tab, as GitHub Desktop does; one already open keeps its own tab. */
+export function switchTabRepo(state: TabsState, tabId: number, repo: RepoInfo): TabsState {
+  const existing = state.tabs.find((tab) => tab.repo?.path === repo.path)
+  if (existing) return { ...state, activeId: existing.id }
+  return { ...state, tabs: state.tabs.map((tab) => (tab.id === tabId ? { ...tab, repo } : tab)), activeId: tabId }
+}
+
 export function addEmptyTab(state: TabsState): TabsState {
   const tab = emptyTab(state.nextId)
   return { tabs: [...state.tabs, tab], activeId: tab.id, nextId: state.nextId + 1 }

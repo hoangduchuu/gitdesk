@@ -13,6 +13,7 @@ import {
   openRepoInTabs,
   restoreTabs,
   savedTabs,
+  switchTabRepo,
   type TabsState
 } from './tabs'
 import { Workspace } from './Workspace'
@@ -85,6 +86,11 @@ export function App() {
     void gitdesk.openRepoDialog().then((result) => show(result, targetId))
   const openRecent = (targetId: number, path: string): void =>
     void gitdesk.openRecentRepo(path).then((result) => show(result, targetId))
+  const switchRepo = (tabId: number, path: string): void =>
+    void gitdesk.openRecentRepo(path).then((result) => {
+      if (result.ok) setState((current) => current && switchTabRepo(current, tabId, result.data))
+      else setError(result.error)
+    })
 
   return (
     <div className="shell">
@@ -102,7 +108,13 @@ export function App() {
         return (
           <div key={tab.id} className="tab-content" hidden={!active}>
             {tab.repo ? (
-              <Workspace repo={tab.repo} active={active} onOpen={() => openDialog(null)} />
+              <Workspace
+                key={tab.repo.path}
+                repo={tab.repo}
+                active={active}
+                onOpen={() => openDialog(null)}
+                onSwitchRepo={(path) => switchRepo(tab.id, path)}
+              />
             ) : (
               <NewTabPage
                 active={active}

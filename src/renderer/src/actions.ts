@@ -2,6 +2,7 @@ import type { ResetMode } from '../../shared/api'
 import type { Branch, MergeOutcome, Stash, Tag, WorkingTreeStatus } from '../../shared/model'
 import type { Commit, Result } from '../../shared/types'
 import { api } from './api'
+import type { ChoiceRequest } from './components/ChoiceDialog'
 import { action, heading, separator, type MenuItem } from './components/ContextMenu'
 import type { PromptRequest } from './components/PromptDialog'
 import type { RepositoryController } from './hooks/useRepository'
@@ -14,12 +15,16 @@ export interface ActionContext {
   onConflicts: () => void
   onSelectionGone: () => void
   prompt: (request: PromptRequest) => void
+  choose: (request: ChoiceRequest) => void
   openRebase: (base: string) => void
   t: Translate
   tCount: (base: string, count: number, params?: Params) => string
 }
 
 const short = (hash: string): string => hash.slice(0, 7)
+
+/** git's refusal when switching would overwrite local changes (`git switch` says checkout too). */
+const OVERWRITTEN_BY_CHECKOUT = 'would be overwritten by checkout'
 
 /** Every git action the UI offers, plus the right-click menus built from them. */
 export function createActions(ctx: ActionContext) {
@@ -43,8 +48,34 @@ export function createActions(ctx: ActionContext) {
   }
 
   // ---------- branches ----------
+  /** Stash local changes, then switch; `bring` reapplies them on the new branch. */
+  const checkoutWithStash = (branch: Branch, bring: boolean): void => {
+    void run(t('action.checkout'), async (): Promise<Result<unknown>> => {
+      const stashed = await gitdesk.stashPush(path, t('action.leftChangesStash', { current }), true)
+      if (!stashed.ok) return stashed
+      const switched = await gitdesk.checkoutBranch(path, branch.name, branch.kind)
+      if (!switched.ok || !bring) return switched
+      const popped = await gitdesk.stashPop(path, 'stash@{0}')
+      reportMerge(popped)
+      return popped
+    })
+  }
+  // Like GitHub Desktop: changes git can carry over just come along; otherwise ask what to do with them.
   const checkout = (branch: Branch): void => {
-    void run(t('action.checkout'), () => gitdesk.checkoutBranch(path, branch.name, branch.kind))
+    void run(t('action.checkout'), () => gitdesk.checkoutBranch(path, branch.name, branch.kind), {
+      showError: (error) => !error.includes(OVERWRITTEN_BY_CHECKOUT)
+    }).then((result) => {
+      if (result.ok || !result.error.includes(OVERWRITTEN_BY_CHECKOUT)) return
+      const name = branch.name
+      ctx.choose({
+        title: t('action.checkoutBlockedTitle', { name }),
+        message: t('action.checkoutBlocked', { current, name }),
+        choices: [
+          { label: t('action.leaveChanges', { current }), hint: t('action.leaveChangesHint'), onSelect: () => checkoutWithStash(branch, false) },
+          { label: t('action.bringChanges', { name }), hint: t('action.bringChangesHint'), onSelect: () => checkoutWithStash(branch, true) }
+        ]
+      })
+    })
   }
   const merge = (name: string): void => {
     if (!window.confirm(t('action.mergeConfirm', { name, current }))) return

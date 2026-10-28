@@ -64,16 +64,21 @@ export function useRepository(repo: RepoInfo | null, active = true) {
 
   /**
    * Run one operation; errors become a banner instead of an exception. The result tells
-   * success from failure even for operations whose data is null.
+   * success from failure even for operations whose data is null. `showError` false leaves
+   * an error the caller handles itself (e.g. by asking the user) out of the banner.
    */
   const run = useCallback(
-    async <T,>(label: string, operation: () => Promise<Result<T>>): Promise<Result<T>> => {
+    async <T,>(
+      label: string,
+      operation: () => Promise<Result<T>>,
+      options: { showError?: (error: string) => boolean } = {}
+    ): Promise<Result<T>> => {
       setBusy(label)
       setError(null)
       setNotice(null)
       try {
         const result = await operation()
-        if (!result.ok) setError(result.error)
+        if (!result.ok && (options.showError?.(result.error) ?? true)) setError(result.error)
         return result
       } catch (failure) {
         const message = errorMessage(failure)

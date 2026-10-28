@@ -106,13 +106,14 @@ export function CommitGraph({ rows, selectedHash, revealHash, picked, onSelect, 
   )
 }
 
+/** Every branch and tag on the commit, side by side; long names shrink to fit the column. */
 function RefLabels({ refs, t }: { refs: readonly RefLabel[]; t: Translate }) {
-  const [first, ...rest] = refs
-  if (!first) return null
+  if (refs.length === 0) return null
   return (
     <span className="ref-labels" title={refs.map((ref) => ref.label).join('\n')}>
-      <RefPill label={first} t={t} />
-      {rest.length > 0 && <span className="ref-more">+{rest.length}</span>}
+      {refs.map((label) => (
+        <RefPill key={`${label.kind}:${label.label}`} label={label} t={t} />
+      ))}
     </span>
   )
 }

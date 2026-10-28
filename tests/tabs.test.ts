@@ -8,7 +8,8 @@ import {
   moveTab,
   openRepoInTabs,
   restoreTabs,
-  savedTabs
+  savedTabs,
+  switchTabRepo
 } from '../src/renderer/src/tabs'
 
 const repo = (name: string): RepoInfo => ({ path: `/repos/${name}`, name, head: 'main' })
@@ -47,6 +48,20 @@ describe('tabs', () => {
     const state = openRepoInTabs(two, repo('a'), null)
     expect(names(state)).toEqual(['a', 'b'])
     expect(state.activeId).toBe(two.tabs[0]!.id)
+  })
+
+  test('switching repository replaces the repository of that tab', () => {
+    const two = restoreTabs([repo('a'), repo('b')], 0)
+    const state = switchTabRepo(two, two.tabs[0]!.id, repo('c'))
+    expect(names(state)).toEqual(['c', 'b'])
+    expect(state.activeId).toBe(two.tabs[0]!.id)
+  })
+
+  test('switching to a repository open in another tab shows that tab instead', () => {
+    const two = restoreTabs([repo('a'), repo('b')], 0)
+    const state = switchTabRepo(two, two.tabs[0]!.id, repo('b'))
+    expect(names(state)).toEqual(['a', 'b'])
+    expect(state.activeId).toBe(two.tabs[1]!.id)
   })
 
   test('closing the active tab selects its right neighbour, else the left', () => {
