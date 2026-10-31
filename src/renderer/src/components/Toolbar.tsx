@@ -12,6 +12,8 @@ interface Props {
   onOpen: () => void
   /** Click on the repository name: list the recent repositories to switch to. */
   onRepoMenu?: (event: MouseEvent) => void
+  /** Click on the branch name: list the branches to check out. */
+  onBranchMenu?: (event: MouseEvent) => void
   onFetch: () => void
   onPull: () => void
   onPush: () => void
@@ -72,7 +74,7 @@ function useMinimumVisible(value: string | null): string | null {
 export function Toolbar(props: Props) {
   const t = useT()
   const { repo, status, busy, stashCount, onOpen, onFetch, onPull, onPush, onBranch, onStash, onPop, onProfiles } = props
-  const { terminalOpen, onTerminal, onSettings, onRepoMenu } = props
+  const { terminalOpen, onTerminal, onSettings, onRepoMenu, onBranchMenu } = props
   const running = useMinimumVisible(busy)
   const disabled = repo === null || running !== null
   const dirty = status !== null && status.staged.length + status.unstaged.length > 0
@@ -81,14 +83,23 @@ export function Toolbar(props: Props) {
     <header className="toolbar">
       <Tool icon="open" label={t('toolbar.open')} onClick={onOpen} disabled={busy !== null} />
       {repo && (
-        <button type="button" className="repo-title" onClick={onRepoMenu} disabled={onRepoMenu === undefined} title={t('toolbar.switchRepo')}>
-          {repo.name}
-          <span className="repo-branch">
+        <span className="repo-switchers">
+          <button type="button" className="repo-title" onClick={onRepoMenu} disabled={onRepoMenu === undefined} title={t('toolbar.switchRepo')}>
+            {repo.name}
+            <Icon name="down" size={13} />
+          </button>
+          <button
+            type="button"
+            className="repo-title repo-branch"
+            onClick={onBranchMenu}
+            disabled={onBranchMenu === undefined || running !== null}
+            title={t('toolbar.switchBranch')}
+          >
             <Icon name="branch" size={13} />
             {status?.branch ?? t('toolbar.detachedHead')}
-          </span>
-          <Icon name="down" size={13} />
-        </button>
+            <Icon name="down" size={13} />
+          </button>
+        </span>
       )}
       {running && <span className="busy">{running}…</span>}
       <span className="toolbar-actions">

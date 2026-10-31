@@ -135,10 +135,16 @@ body {
 }
 
 
+.repo-switchers {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .repo-title {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
+  align-items: center;
+  gap: 6px;
   padding: 4px 8px;
   border: none;
   border-radius: 4px;
@@ -313,11 +319,53 @@ body {
   font-size: 12px;
 }
 
-/* Several labels share the graph column equally, so a long name cannot crowd out a short one. */
+/* Labels keep their full width; those that do not fit fold into "+N" (see RefLabels). */
 .ref-labels > .ref-pill {
-  flex: 1 1 0;
-  max-width: max-content;
+  flex: none;
+}
+
+.ref-labels > .ref-pill:first-child {
+  flex: 0 1 auto;
   overflow: hidden;
+}
+
+.ref-labels > .ref-pill.is-folded {
+  display: none;
+}
+
+.ref-more {
+  flex: none;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* Hovering the row lays every label out over the graph, as GitKraken does. */
+.col-refs {
+  position: relative;
+}
+
+.graph-row:hover .ref-labels.has-folded:not(.measuring) {
+  position: absolute;
+  left: 10px;
+  z-index: 3;
+  overflow: visible;
+}
+
+.graph-row:hover .ref-labels:not(.measuring) > .ref-pill.is-folded {
+  display: inline-flex;
+}
+
+.graph-row:hover .ref-labels:not(.measuring) > .ref-more {
+  display: none;
+}
+
+.ref-labels.measuring > .ref-pill {
+  display: inline-flex;
+  flex: none;
+}
+
+.ref-labels.measuring > .ref-more {
+  display: none;
 }
 
 .ref-pill.is-head {
@@ -1000,6 +1048,8 @@ textarea {
   z-index: 20;
   min-width: 230px;
   max-width: 420px;
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
   padding: 4px;
   border: 1px solid var(--border);
   border-radius: 6px;

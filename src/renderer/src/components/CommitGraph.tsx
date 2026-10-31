@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
 import type { GraphNode } from '../../../shared/graph-nodes'
 import { ageMarkers } from '../../../shared/format'
 import { groupRefs, type RefLabel } from '../../../shared/refs'
@@ -106,21 +106,54 @@ export function CommitGraph({ rows, selectedHash, revealHash, picked, onSelect, 
   )
 }
 
-/** Every branch and tag on the commit, side by side; long names shrink to fit the column. */
+/** Room kept for the "+N" counter when some labels are folded. */
+const MORE_WIDTH = 30
+
+/**
+ * Branch and tag labels at full width while they fit the column; the rest fold into "+N"
+ * and appear when the row is hovered. Only the first label shrinks, so it is never crowded out.
+ */
 function RefLabels({ refs, t }: { refs: readonly RefLabel[]; t: Translate }) {
+  const box = useRef<HTMLSpanElement>(null)
+  const [shown, setShown] = useState(refs.length)
+  const key = refs.map((ref) => `${ref.kind}:${ref.label}`).join('\n')
+
+  useLayoutEffect(() => {
+    const element = box.current
+    if (element) setShown(fittingLabels(element))
+  }, [key])
+
   if (refs.length === 0) return null
+  const folded = refs.length - shown
   return (
-    <span className="ref-labels" title={refs.map((ref) => ref.label).join('\n')}>
-      {refs.map((label) => (
-        <RefPill key={`${label.kind}:${label.label}`} label={label} t={t} />
+    <span ref={box} className={`ref-labels${folded > 0 ? ' has-folded' : ''}`} title={refs.map((ref) => ref.label).join('\n')}>
+      {refs.map((label, index) => (
+        <RefPill key={`${label.kind}:${label.label}`} label={label} folded={index >= shown} t={t} />
       ))}
+      {folded > 0 && <span className="ref-more">+{folded}</span>}
     </span>
   )
 }
 
-function RefPill({ label, t }: { label: RefLabel; t: Translate }) {
+/** How many labels fit side by side, leaving room for "+N" when some do not; the first always shows. */
+function fittingLabels(element: HTMLElement): number {
+  element.classList.add('measuring')
+  const box = element.getBoundingClientRect()
+  const pills = [...element.querySelectorAll<HTMLElement>('.ref-pill')]
+  let count = 1
+  for (let index = 1; index < pills.length; index++) {
+    const right = pills[index]!.getBoundingClientRect().right - box.left
+    const reserve = index < pills.length - 1 ? MORE_WIDTH : 0
+    if (right + reserve > box.width) break
+    count = index + 1
+  }
+  element.classList.remove('measuring')
+  return count
+}
+
+function RefPill({ label, folded, t }: { label: RefLabel; folded: boolean; t: Translate }) {
   return (
-    <span className={`ref-pill ref-pill-${label.kind}${label.isHead ? ' is-head' : ''}`}>
+    <span className={`ref-pill ref-pill-${label.kind}${label.isHead ? ' is-head' : ''}${folded ? ' is-folded' : ''}`}>
       {label.isHead && <span className="ref-icon">✓</span>}
       {label.kind === 'tag' && <span className="ref-icon">◆</span>}
       <span className="ref-name">{label.label}</span>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react'
 import { layoutGraph } from '../../shared/graph'
 import { buildGraphNodes, WIP_HASH, type GraphNode } from '../../shared/graph-nodes'
-import type { DiffTarget } from '../../shared/model'
+import type { Branch, DiffTarget } from '../../shared/model'
 import type { RepoInfo } from '../../shared/types'
 import { createActions } from './actions'
 import { api } from './api'
@@ -153,6 +153,28 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
     })
   }
 
+  /** GitHub Desktop-style branch switcher, opened from the branch name; checking out reuses the sidebar's action. */
+  const branchMenu = (event: MouseEvent): void => {
+    if (!data) return
+    const anchor = event.currentTarget.getBoundingClientRect()
+    const item = (branch: Branch): MenuItem =>
+      action(branch.name, () => actions.checkout(branch), {
+        icon: branch.isHead ? 'checkout' : branch.kind === 'local' ? 'local' : 'remote',
+        disabled: branch.isHead
+      })
+    const local = data.branches.filter((branch) => branch.kind === 'local').map(item)
+    const remote = data.branches.filter((branch) => branch.kind === 'remote').map(item)
+    setMenu({
+      x: anchor.left,
+      y: anchor.bottom,
+      items: [
+        heading(t('toolbar.localBranches')),
+        ...local,
+        ...(remote.length > 0 ? [separator, heading(t('toolbar.remoteBranches')), ...remote] : [])
+      ]
+    })
+  }
+
   const nodeMenu = (node: GraphNode, event: MouseEvent): void => {
     if (node.kind === 'commit') {
       const hashes = picked.size > 0 ? pickedInOrder(node.hash) : [node.hash]
@@ -202,6 +224,7 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
         stashCount={data?.stashes.length ?? 0}
         onOpen={onOpen}
         onRepoMenu={repoMenu}
+        onBranchMenu={data ? branchMenu : undefined}
         onFetch={() => void run(t('app.fetching'), () => gitdesk.fetch(path))}
         onPull={() => void run(t('app.pulling'), () => gitdesk.pull(path)).then(actions.reportMerge)}
         onPush={() => void run(t('app.pushing'), () => gitdesk.push(path))}

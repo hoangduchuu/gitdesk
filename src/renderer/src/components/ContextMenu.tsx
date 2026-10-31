@@ -51,12 +51,16 @@ export function ContextMenu({ request, onClose }: { request: MenuRequest; onClos
     window.addEventListener('mousedown', close)
     window.addEventListener('blur', close)
     window.addEventListener('keydown', onKey)
-    window.addEventListener('wheel', close, { passive: true })
+    // Scrolling a long menu (the branch list) must not close it.
+    const onWheel = (event: WheelEvent): void => {
+      if (!menu.current?.contains(event.target as Node)) onClose()
+    }
+    window.addEventListener('wheel', onWheel, { passive: true })
     return () => {
       window.removeEventListener('mousedown', close)
       window.removeEventListener('blur', close)
       window.removeEventListener('keydown', onKey)
-      window.removeEventListener('wheel', close)
+      window.removeEventListener('wheel', onWheel)
     }
   }, [onClose])
 
