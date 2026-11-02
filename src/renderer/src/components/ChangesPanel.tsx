@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { DiffTarget, FileChange, WorkingTreeStatus } from '../../../shared/model'
 import { api } from '../api'
 import type { RepositoryController } from '../hooks/useRepository'
@@ -28,6 +28,8 @@ export function ChangesPanel(props: Props) {
   const { repo, status, controller, selectedKey, onOpenDiff, onOpenConflict, profileVersion, onManageProfiles } = props
   const [message, setMessage] = useState('')
   const [amend, setAmend] = useState(false)
+  /** Draft typed before amending, and the HEAD message loaded in its place, to undo on uncheck. */
+  const amendDraft = useRef<{ draft: string; loaded: string } | null>(null)
   const { run } = controller
   const gitdesk = api()
   const t = useT()
@@ -55,6 +57,27 @@ export function ChangesPanel(props: Props) {
     if (result.ok) {
       setMessage('')
       setAmend(false)
+      amendDraft.current = null
+    }
+  }
+
+  const toggleAmend = async (checked: boolean): Promise<void> => {
+    setAmend(checked)
+    if (!checked) {
+      // Put the draft back only if the loaded message was left untouched.
+      const saved = amendDraft.current
+      amendDraft.current = null
+      if (saved && message === saved.loaded) setMessage(saved.draft)
+      return
+    }
+    try {
+      const [head] = await gitdesk.getLog(repo, 1).then((result) => (result.ok ? result.data : []))
+      if (!head) return
+      const loaded = head.body ? `${head.subject}\n\n${head.body}` : head.subject
+      amendDraft.current = { draft: message, loaded }
+      setMessage(loaded)
+    } catch {
+      // No commit to amend yet; leave the message as typed.
     }
   }
 
@@ -162,7 +185,7 @@ export function ChangesPanel(props: Props) {
         />
         <div className="commit-actions">
           <label className="checkbox">
-            <input type="checkbox" checked={amend} onChange={(event) => setAmend(event.target.checked)} />
+            <input type="checkbox" checked={amend} onChange={(event) => void toggleAmend(event.target.checked)} />
             {t('changes.amendLastCommit')}
           </label>
           <button type="button" disabled={!canCommit} onClick={() => void commit()}>
