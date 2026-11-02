@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react'
 import { layoutGraph } from '../../shared/graph'
 import { buildGraphNodes, WIP_HASH, type GraphNode } from '../../shared/graph-nodes'
-import type { Branch, DiffTarget } from '../../shared/model'
+import type { Branch, DiffTarget, GitflowConfig, GitflowState } from '../../shared/model'
 import type { RepoInfo } from '../../shared/types'
 import { createActions } from './actions'
 import { api } from './api'
@@ -12,6 +12,7 @@ import { CommitPanel } from './components/CommitPanel'
 import { ConflictView } from './components/ConflictView'
 import { action, ContextMenu, heading, separator, type MenuItem, type MenuRequest } from './components/ContextMenu'
 import { DiffView, type StagingOptions } from './components/DiffView'
+import { GitflowInitDialog } from './components/GitflowInitDialog'
 import { OperationBanner } from './components/OperationBanner'
 import { ProfilesDialog } from './components/ProfilesDialog'
 import { PromptDialog, type PromptRequest } from './components/PromptDialog'
@@ -54,6 +55,7 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
   const [choice, setChoice] = useState<ChoiceRequest | null>(null)
   const [menu, setMenu] = useState<MenuRequest | null>(null)
   const [profilesOpen, setProfilesOpen] = useState(false)
+  const [gitflowInit, setGitflowInit] = useState<GitflowState | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   /** Bumped when the profiles dialog closes, so pickers reload. */
   const [profileVersion, setProfileVersion] = useState(0)
@@ -105,6 +107,7 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
     prompt: setPrompt,
     choose: setChoice,
     openRebase: (base) => setCenter({ kind: 'rebase', base }),
+    openGitflowInit: setGitflowInit,
     t,
     tCount
   })
@@ -175,6 +178,20 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
     })
   }
 
+  /** Git Flow menu under the toolbar button; its content depends on the repository's Git Flow state. */
+  const gitflowMenu = (event: MouseEvent): void => {
+    const anchor = event.currentTarget.getBoundingClientRect()
+    void gitdesk.getGitflow(path).then((result) => {
+      if (!result.ok) return setError(result.error)
+      setMenu({ x: anchor.left, y: anchor.bottom, items: actions.gitflowMenu(result.data) })
+    })
+  }
+
+  const saveGitflow = (config: GitflowConfig): void => {
+    setGitflowInit(null)
+    void run(t('gitflow.initializing'), () => gitdesk.initGitflow(path, config))
+  }
+
   const nodeMenu = (node: GraphNode, event: MouseEvent): void => {
     if (node.kind === 'commit') {
       const hashes = picked.size > 0 ? pickedInOrder(node.hash) : [node.hash]
@@ -229,6 +246,7 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
         onPull={() => void run(t('app.pulling'), () => gitdesk.pull(path)).then(actions.reportMerge)}
         onPush={() => void run(t('app.pushing'), () => gitdesk.push(path))}
         onBranch={() => actions.promptCreateBranch(null)}
+        onGitflow={gitflowMenu}
         onStash={actions.promptStash}
         onPop={() => data?.stashes[0] && actions.popStash(data.stashes[0])}
         onProfiles={() => setProfilesOpen(true)}
@@ -359,6 +377,7 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
       {prompt && <PromptDialog request={prompt} onClose={() => setPrompt(null)} />}
       {choice && <ChoiceDialog request={choice} onClose={() => setChoice(null)} />}
       {menu && <ContextMenu request={menu} onClose={closeMenu} />}
+      {gitflowInit && <GitflowInitDialog state={gitflowInit} onSubmit={saveGitflow} onClose={() => setGitflowInit(null)} />}
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
       {profilesOpen && (
         <ProfilesDialog

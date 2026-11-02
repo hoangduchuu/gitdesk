@@ -20,6 +20,7 @@ import { readCommitFiles, readDiff, readStashFiles } from './git/diff'
 import { checkoutCommit, cherryPick, resetTo, revertCommit } from './git/history'
 import { applySelection } from './git/partial'
 import { interactiveRebase, readRebaseCommits } from './git/rebase'
+import { finishGitflow, initGitflow, readGitflow, startGitflow } from './git/gitflow'
 import { createTag, deleteRemoteTag, deleteTag, pushTag, readTags } from './git/tags'
 import { readLog } from './git/log'
 import { fetch, pull, push } from './git/remote'
@@ -34,6 +35,8 @@ import {
   requireBranchKind,
   requireDiffTarget,
   requireFileChanges,
+  requireGitflowConfig,
+  requireGitflowKind,
   requireHash,
   requireHashes,
   requireNullableString,
@@ -151,6 +154,16 @@ export const createHandlers = (
 
   getRebaseCommits: async (repo, base) => readRebaseCommits(repo, requireHash(base)),
   interactiveRebase: async (repo, base, steps) => interactiveRebase(repo, requireHash(base), requireRebaseSteps(steps)),
+
+  getGitflow: async (repo) => readGitflow(repo),
+  initGitflow: async (repo, config) => done(initGitflow(repo, requireGitflowConfig(config))),
+  startGitflow: async (repo, kind, name) =>
+    done(startGitflow(repo, requireGitflowKind(kind), requireString(name, 'branch name').trim())),
+  finishGitflow: async (repo, kind, name, deleteBranch, tagMessage) =>
+    finishGitflow(repo, requireGitflowKind(kind), requireString(name, 'branch name').trim(), {
+      deleteBranch: requireBoolean(deleteBranch, 'delete flag'),
+      tagMessage: requireNullableString(tagMessage, 'tag message')
+    }),
 
   getProfiles: async (repo) => {
     const [list, selected, identity] = await Promise.all([profiles.list(), profiles.repoProfile(repo), gitIdentity(repo)])

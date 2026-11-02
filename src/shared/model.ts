@@ -150,3 +150,27 @@ export interface ProfileAuthState {
   /** Profile id -> its connection; profiles without one are not listed. */
   byProfile: Record<string, ProfileAuth>
 }
+
+export type GitflowKind = 'feature' | 'release' | 'hotfix'
+
+/** Git Flow naming. Saved in git config under `gitflow.*`, so the git-flow command line agrees. */
+export interface GitflowConfig {
+  main: string
+  develop: string
+  /** Branch prefixes, e.g. `feature/`. */
+  feature: string
+  release: string
+  hotfix: string
+  /** Prefix for the tag made when finishing a release or hotfix; may be empty. */
+  versionTag: string
+}
+
+export interface GitflowState {
+  initialized: boolean
+  /** The saved settings, or the defaults to start from. */
+  config: GitflowConfig
+  /** Local Git Flow branches by kind, names without the prefix. */
+  open: Record<GitflowKind, string[]>
+  /** The Git Flow branch that is checked out, if any. */
+  current: { kind: GitflowKind; name: string } | null
+}

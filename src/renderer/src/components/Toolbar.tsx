@@ -18,6 +18,8 @@ interface Props {
   onPull: () => void
   onPush: () => void
   onBranch: () => void
+  /** Opens the Git Flow menu (start and finish feature, release, hotfix). */
+  onGitflow: (event: MouseEvent) => void
   onStash: () => void
   onPop: () => void
   onProfiles: () => void
@@ -29,7 +31,7 @@ interface Props {
 interface ToolProps {
   icon: IconName
   label: string
-  onClick: () => void
+  onClick: (event: MouseEvent) => void
   disabled?: boolean
   active?: boolean
   /** The operation this button started is running: the icon spins. */
@@ -73,7 +75,7 @@ function useMinimumVisible(value: string | null): string | null {
 
 export function Toolbar(props: Props) {
   const t = useT()
-  const { repo, status, busy, stashCount, onOpen, onFetch, onPull, onPush, onBranch, onStash, onPop, onProfiles } = props
+  const { repo, status, busy, stashCount, onOpen, onFetch, onPull, onPush, onBranch, onGitflow, onStash, onPop, onProfiles } = props
   const { terminalOpen, onTerminal, onSettings, onRepoMenu, onBranchMenu } = props
   const running = useMinimumVisible(busy)
   const disabled = repo === null || running !== null
@@ -108,6 +110,7 @@ export function Toolbar(props: Props) {
         <Tool icon="push" label={t('toolbar.push')} onClick={onPush} disabled={disabled} loading={running === t('app.pushing')} badge={status?.ahead} />
         <span className="toolbar-separator" />
         <Tool icon="newBranch" label={t('toolbar.branch')} onClick={onBranch} disabled={disabled} />
+        <Tool icon="gitflow" label={t('gitflow.title')} onClick={onGitflow} disabled={disabled} />
         <Tool icon="stash" label={t('toolbar.stash')} onClick={onStash} disabled={disabled || !dirty} loading={running === t('action.stashing')} />
         <Tool icon="pop" label={t('toolbar.pop')} onClick={onPop} disabled={disabled || stashCount === 0} loading={running === t('action.poppingStash')} />
         <span className="toolbar-separator" />

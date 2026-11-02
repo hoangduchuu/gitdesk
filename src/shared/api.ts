@@ -6,6 +6,9 @@ import type {
   DiffTarget,
   FileChange,
   GithubDeviceLogin,
+  GitflowConfig,
+  GitflowKind,
+  GitflowState,
   MergeOutcome,
   Profile,
   ProfileAuth,
@@ -101,6 +104,12 @@ export interface GitDeskApi {
   getRebaseCommits(repo: string, base: string): Async<Commit[]>
   interactiveRebase(repo: string, base: string, steps: RebaseStep[]): Async<MergeOutcome>
 
+  getGitflow(repo: string): Async<GitflowState>
+  initGitflow(repo: string, config: GitflowConfig): Async<null>
+  startGitflow(repo: string, kind: GitflowKind, name: string): Async<null>
+  /** Merge a feature, release or hotfix where it belongs (tagging releases and hotfixes). */
+  finishGitflow(repo: string, kind: GitflowKind, name: string, deleteBranch: boolean, tagMessage: string | null): Async<MergeOutcome>
+
   getProfiles(repo: string): Async<ProfileState>
   saveProfile(repo: string, input: ProfileInput): Async<Profile>
   deleteProfile(repo: string, id: string): Async<null>
@@ -174,6 +183,10 @@ export const REPO_METHODS = [
   'applySelection',
   'getRebaseCommits',
   'interactiveRebase',
+  'getGitflow',
+  'initGitflow',
+  'startGitflow',
+  'finishGitflow',
   'getProfiles',
   'saveProfile',
   'deleteProfile',

@@ -1,5 +1,5 @@
 import type { ResetMode } from '../../shared/api'
-import type { Branch, MergeOutcome, Stash, Tag, WorkingTreeStatus } from '../../shared/model'
+import type { Branch, GitflowKind, GitflowState, MergeOutcome, Stash, Tag, WorkingTreeStatus } from '../../shared/model'
 import type { Commit, Result } from '../../shared/types'
 import { api } from './api'
 import type { ChoiceRequest } from './components/ChoiceDialog'
@@ -17,6 +17,8 @@ export interface ActionContext {
   prompt: (request: PromptRequest) => void
   choose: (request: ChoiceRequest) => void
   openRebase: (base: string) => void
+  /** Show the dialog for the Git Flow branch names and prefixes. */
+  openGitflowInit: (state: GitflowState) => void
   t: Translate
   tCount: (base: string, count: number, params?: Params) => string
 }
@@ -192,6 +194,88 @@ export function createActions(ctx: ActionContext) {
         })
     })
 
+  // ---------- git flow ----------
+  const baseOf = (kind: GitflowKind, state: GitflowState): string => (kind === 'hotfix' ? state.config.main : state.config.develop)
+
+  const promptStartGitflow = (kind: GitflowKind, state: GitflowState): void =>
+    ctx.prompt({
+      title: t('gitflow.startTitle', { kind: t(`gitflow.kind.${kind}`) }),
+      label: t('gitflow.nameLabel', { prefix: state.config[kind], base: baseOf(kind, state) }),
+      submitLabel: t('gitflow.startSubmit'),
+      onSubmit: (name) => void run(t('gitflow.starting'), () => gitdesk.startGitflow(path, kind, name))
+    })
+
+  const finishGitflow = (kind: GitflowKind, name: string, deleteBranch: boolean, tagMessage: string | null): void => {
+    void run(t('gitflow.finishing'), () => gitdesk.finishGitflow(path, kind, name, deleteBranch, tagMessage)).then((result) => {
+      if (!result.ok || !result.data.conflicts) return
+      controller.setNotice(t('gitflow.conflictNotice'))
+      ctx.onConflicts()
+    })
+  }
+
+  const promptFinishGitflow = (kind: GitflowKind, name: string, state: GitflowState): void => {
+    const branch = `${state.config[kind]}${name}`
+    const kindLabel = t(`gitflow.kind.${kind}`)
+    if (kind === 'feature') {
+      const develop = state.config.develop
+      ctx.choose({
+        title: t('gitflow.finishTitle', { kind: kindLabel, name }),
+        message: t('gitflow.finishFeatureMessage', { branch, develop }),
+        choices: [
+          { label: t('gitflow.finishDelete', { branch }), hint: t('gitflow.finishDeleteHint', { develop }), onSelect: () => finishGitflow(kind, name, true, null) },
+          { label: t('gitflow.finishKeep', { branch }), hint: t('gitflow.finishKeepHint', { develop }), onSelect: () => finishGitflow(kind, name, false, null) }
+        ]
+      })
+      return
+    }
+    const tag = `${state.config.versionTag}${name}`
+    ctx.prompt({
+      title: t('gitflow.finishTitle', { kind: kindLabel, name }),
+      label: t('gitflow.tagMessage', { tag, main: state.config.main }),
+      initial: `${kindLabel} ${name}`,
+      allowEmpty: true,
+      option: { label: t('gitflow.deleteBranch', { branch }), initial: true },
+      submitLabel: t('gitflow.finishSubmit'),
+      onSubmit: (message, deleteBranch) => finishGitflow(kind, name, deleteBranch, message === '' ? null : message)
+    })
+  }
+
+  /** The toolbar's Git Flow menu: set up, start, and finish whatever is in progress. */
+  const gitflowMenu = (state: GitflowState): MenuItem[] => {
+    if (!state.initialized) {
+      return [
+        heading(t('gitflow.title')),
+        heading(t('gitflow.notInitialized')),
+        action(t('gitflow.initialize') + '…', () => ctx.openGitflowInit(state), { icon: 'gitflow' })
+      ]
+    }
+    const kinds: GitflowKind[] = ['feature', 'release', 'hotfix']
+    const inProgress = kinds.flatMap((kind) => state.open[kind].map((name) => ({ kind, name })))
+    return [
+      heading(t('gitflow.title')),
+      ...kinds.map((kind) =>
+        action(t('gitflow.start', { kind: t(`gitflow.kind.${kind}`) }), () => promptStartGitflow(kind, state), {
+          icon: 'newBranch',
+          // Like git-flow: one release and one hotfix at a time.
+          disabled: kind !== 'feature' && state.open[kind].length > 0
+        })
+      ),
+      ...(inProgress.length > 0
+        ? [
+            separator,
+            heading(t('gitflow.inProgress')),
+            ...inProgress.map(({ kind, name }) =>
+              action(t('gitflow.finish', { kind: t(`gitflow.kind.${kind}`), name }), () => promptFinishGitflow(kind, name, state), {
+                icon: 'merge'
+              })
+            )
+          ]
+        : []),
+      separator,
+      action(t('gitflow.settings'), () => ctx.openGitflowInit(state), { icon: 'settings' })
+    ]
+  }
+
   // ---------- menus ----------
   const commitMenu = (commit: Commit, picked: readonly string[]): MenuItem[] => {
     const many = picked.length > 1 && picked.includes(commit.hash)
@@ -269,6 +353,7 @@ export function createActions(ctx: ActionContext) {
     popStash,
     dropStash,
     promptStash,
+    gitflowMenu,
     commitMenu,
     branchMenu,
     tagMenu,

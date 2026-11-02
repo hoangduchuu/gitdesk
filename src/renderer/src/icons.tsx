@@ -46,6 +46,7 @@ import {
   Undo2,
   Upload,
   UserCog,
+  Workflow,
   X,
   type LucideIcon
 } from 'lucide-react'
@@ -62,6 +63,7 @@ export const ICONS = {
   pop: ArchiveRestore,
   terminal: SquareTerminal,
   profiles: UserCog,
+  gitflow: Workflow,
   settings: Settings,
   local: Laptop,
   remote: Cloud,

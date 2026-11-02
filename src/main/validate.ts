@@ -5,6 +5,8 @@ import type {
   ConflictSide,
   DiffTarget,
   FileChange,
+  GitflowConfig,
+  GitflowKind,
   ProfileInput,
   RebaseAction,
   RebaseStep
@@ -164,5 +166,22 @@ export const requireProfileInput = (value: unknown): ProfileInput => {
     ...(id === undefined ? {} : { id: requireString(id, 'profile id') }),
     name: requireString(input['name'], 'profile name'),
     email: requireString(input['email'], 'profile email')
+  }
+}
+
+export const requireGitflowKind = (value: unknown): GitflowKind =>
+  value === 'feature' || value === 'release' || value === 'hotfix' ? value : fail('Git Flow branch type')
+
+export const requireGitflowConfig = (value: unknown): GitflowConfig => {
+  const input = value as Record<string, unknown> | null
+  if (!input || typeof input !== 'object') return fail('Git Flow settings')
+  const field = (key: keyof GitflowConfig): string => requireString(input[key], `Git Flow ${key}`)
+  return {
+    main: field('main').trim(),
+    develop: field('develop').trim(),
+    feature: field('feature').trim(),
+    release: field('release').trim(),
+    hotfix: field('hotfix').trim(),
+    versionTag: field('versionTag').trim()
   }
 }
