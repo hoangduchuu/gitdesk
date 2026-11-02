@@ -2,6 +2,19 @@ import type { MessageKey } from './en'
 
 /** Vietnamese UI strings; the type makes a missing key a compile error. */
 export const vi: Record<MessageKey, string> = {
+  'auth.notConnected': 'Chưa kết nối tài khoản git',
+  'auth.github': 'GitHub: @{login}',
+  'auth.tokenAccount': '{username} trên {host}',
+  'auth.signInGithub': 'Đăng nhập GitHub',
+  'auth.githubNotConfigured': 'Bản dựng này chưa cấu hình đăng nhập GitHub',
+  'auth.useToken': 'Dùng access token (GitLab, Gitea, server riêng…)',
+  'auth.disconnect': 'Ngắt kết nối',
+  'auth.starting': 'Đang kết nối GitHub…',
+  'auth.enterCode': 'Nhập mã này vào trang GitHub vừa mở:',
+  'auth.waiting': 'Đang chờ bạn cho phép…',
+  'auth.host': 'Host (vd: gitlab.com)',
+  'auth.username': 'Tên đăng nhập',
+  'auth.token': 'Access token',
   'settings.title': 'Cài đặt',
   'settings.theme': 'Giao diện',
   'settings.theme.dark': 'Tối',

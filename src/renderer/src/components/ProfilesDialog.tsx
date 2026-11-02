@@ -1,9 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import type { Profile } from '../../../shared/model'
+import type { Profile, ProfileAuthState } from '../../../shared/model'
 import { api, errorMessage, unwrap } from '../api'
 import { useT } from '../i18n'
 import { Avatar } from './Avatar'
 import { Icon } from '../icons'
+import { ProfileAuthControls } from './ProfileAuthControls'
 
 interface Props {
   repo: string
@@ -17,6 +18,7 @@ const EMPTY_DRAFT: Draft = { name: '', email: '' }
 export function ProfilesDialog({ repo, onClose }: Props) {
   const t = useT()
   const [profiles, setProfiles] = useState<Profile[]>([])
+  const [auth, setAuth] = useState<ProfileAuthState>({ githubConfigured: false, byProfile: {} })
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT)
   const [error, setError] = useState<string | null>(null)
 
@@ -25,6 +27,11 @@ export function ProfilesDialog({ repo, onClose }: Props) {
       .getProfiles(repo)
       .then(unwrap)
       .then((state) => setProfiles(state.profiles))
+      .catch((failure) => setError(errorMessage(failure)))
+    api()
+      .getProfileAuth()
+      .then(unwrap)
+      .then(setAuth)
       .catch((failure) => setError(errorMessage(failure)))
   }
   useEffect(load, [repo])
@@ -68,6 +75,12 @@ export function ProfilesDialog({ repo, onClose }: Props) {
               <button type="button" className="link danger" onClick={() => void remove(profile)}>
                 <Icon name="delete" size={14} />{t('common.delete')}
               </button>
+              <ProfileAuthControls
+                profileId={profile.id}
+                auth={auth.byProfile[profile.id]}
+                githubConfigured={auth.githubConfigured}
+                onChanged={load}
+              />
             </li>
           ))}
         </ul>

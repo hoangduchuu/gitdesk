@@ -5,8 +5,11 @@ import type {
   ConflictSide,
   DiffTarget,
   FileChange,
+  GithubDeviceLogin,
   MergeOutcome,
   Profile,
+  ProfileAuth,
+  ProfileAuthState,
   ProfileInput,
   ProfileState,
   RebaseStep,
@@ -41,6 +44,17 @@ export interface GitDeskApi {
   openRecentRepo(path: string): Async<RepoInfo>
   /** Remember the open tabs (repository paths, left to right) and the selected one. */
   saveTabs(paths: string[], active: number): Async<null>
+
+  /** How each commit profile is connected to a git provider, for fetch, pull and push. */
+  getProfileAuth(): Async<ProfileAuthState>
+  /** Begin a GitHub browser sign-in: opens github.com and returns the code to enter there. */
+  githubLoginStart(): Async<GithubDeviceLogin>
+  /** Resolves once the code is approved; connects that profile to the GitHub account. */
+  githubLoginComplete(profileId: string): Async<ProfileAuth>
+  githubLoginCancel(): Async<null>
+  /** Connect a profile to any HTTPS git server (GitLab, Gitea, self-hosted...) with an access token. */
+  setProfileToken(profileId: string, host: string, username: string, token: string): Async<ProfileAuth>
+  removeProfileAuth(profileId: string): Async<null>
 
   getLog(repo: string, limit: number): Async<Commit[]>
   getStatus(repo: string): Async<WorkingTreeStatus>
@@ -107,7 +121,19 @@ export interface GitDeskApi {
 }
 
 /** Methods that do not act on an already opened repository. */
-export const APP_METHODS = ['openRepoDialog', 'getWorkspace', 'getRecentRepos', 'openRecentRepo', 'saveTabs'] as const
+export const APP_METHODS = [
+  'openRepoDialog',
+  'getWorkspace',
+  'getRecentRepos',
+  'openRecentRepo',
+  'saveTabs',
+  'getProfileAuth',
+  'githubLoginStart',
+  'githubLoginComplete',
+  'githubLoginCancel',
+  'setProfileToken',
+  'removeProfileAuth'
+] as const
 
 export type RepoMethod = Exclude<keyof GitDeskApi, (typeof APP_METHODS)[number]>
 

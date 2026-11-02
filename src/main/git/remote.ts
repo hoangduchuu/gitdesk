@@ -1,12 +1,12 @@
 import type { MergeOutcome } from '../../shared/model'
 import { allowConflicts } from './conflict'
-import { runGit } from './exec'
+import { runGit, type RunOptions } from './exec'
 import { readStatus } from './status'
 
 const PREFERRED_REMOTE = 'origin'
 
-export async function fetch(repo: string): Promise<void> {
-  await runGit(repo, ['fetch', '--all', '--prune'])
+export async function fetch(repo: string, options: RunOptions = {}): Promise<void> {
+  await runGit(repo, ['fetch', '--all', '--prune'], options)
 }
 
 /** Respect the user's pull.rebase setting; default to a merge when it is unset. */
@@ -15,9 +15,9 @@ const pullStrategy = async (repo: string): Promise<string[]> => {
   return configured.trim() === '' ? ['--no-rebase'] : []
 }
 
-export async function pull(repo: string): Promise<MergeOutcome> {
+export async function pull(repo: string, options: RunOptions = {}): Promise<MergeOutcome> {
   const strategy = await pullStrategy(repo)
-  return allowConflicts(repo, () => runGit(repo, ['pull', '--no-edit', ...strategy]))
+  return allowConflicts(repo, () => runGit(repo, ['pull', '--no-edit', ...strategy], options))
 }
 
 /** `origin` when it exists, otherwise the first configured remote. */
@@ -28,12 +28,12 @@ export const defaultRemote = async (repo: string): Promise<string> => {
 }
 
 /** Push the current branch, publishing it with an upstream the first time. */
-export async function push(repo: string): Promise<void> {
+export async function push(repo: string, options: RunOptions = {}): Promise<void> {
   const status = await readStatus(repo)
   if (status.branch === null) throw new Error('Cannot push a detached HEAD; create a branch first')
   if (status.upstream !== null) {
-    await runGit(repo, ['push'])
+    await runGit(repo, ['push'], options)
     return
   }
-  await runGit(repo, ['push', '-u', await defaultRemote(repo), 'HEAD'])
+  await runGit(repo, ['push', '-u', await defaultRemote(repo), 'HEAD'], options)
 }

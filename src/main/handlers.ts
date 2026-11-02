@@ -26,6 +26,7 @@ import { fetch, pull, push } from './git/remote'
 import { readStashes, requireStashRef, stashApply, stashDrop, stashPop, stashPush } from './git/stash'
 import { readStatus } from './git/status'
 import { commit, discard, gitIdentity, stage, unstage } from './git/worktree'
+import type { Credentials } from './credentials'
 import type { ProfileStore } from './profiles'
 import type { TerminalManager } from './terminal'
 import {
@@ -72,7 +73,16 @@ const done = async (work: Promise<unknown>): Promise<null> => {
 }
 
 /** IPC handlers; profiles live in `profiles`, shells in `terminals`. */
-export const createHandlers = (profiles: ProfileStore, terminals: TerminalManager): RepoHandlers => ({
+export const createHandlers = (
+  profiles: ProfileStore,
+  terminals: TerminalManager,
+  /** Provider connections of the profiles; without it git runs with the user's own credentials. */
+  credentials: Pick<Credentials, 'gitEnv' | 'remove'> | null = null
+): RepoHandlers => {
+  /** Remote commands authenticate as the profile the repository commits with. */
+  const remoteEnv = async (repo: string): Promise<Record<string, string>> =>
+    credentials ? credentials.gitEnv((await profiles.repoProfile(repo))?.id ?? null) : {}
+  return {
   getLog: async (repo, limit) => readLog(repo, requireInteger(limit, 'log limit', 1, MAX_LOG_LIMIT)),
   getStatus: async (repo) => readStatus(repo),
   getBranches: async (repo) => readBranches(repo),
@@ -108,9 +118,9 @@ export const createHandlers = (profiles: ProfileStore, terminals: TerminalManage
     done(deleteBranch(repo, requireString(name, 'branch name'), requireBoolean(force, 'force flag'))),
   mergeBranch: async (repo, name) => mergeBranch(repo, requireString(name, 'branch name')),
 
-  fetch: async (repo) => done(fetch(repo)),
-  pull: async (repo) => pull(repo),
-  push: async (repo) => done(push(repo)),
+  fetch: async (repo) => done(fetch(repo, { env: await remoteEnv(repo) })),
+  pull: async (repo) => pull(repo, { env: await remoteEnv(repo) }),
+  push: async (repo) => done(push(repo, { env: await remoteEnv(repo) })),
 
   stashPush: async (repo, message, includeUntracked) =>
     done(
@@ -147,7 +157,12 @@ export const createHandlers = (profiles: ProfileStore, terminals: TerminalManage
     return { profiles: list, selectedId: selected?.id ?? null, gitIdentity: identity }
   },
   saveProfile: async (_repo, input) => profiles.save(requireProfileInput(input)),
-  deleteProfile: async (_repo, id) => done(profiles.remove(requireString(id, 'profile id'))),
+  deleteProfile: async (_repo, id) => {
+    const profileId = requireString(id, 'profile id')
+    await profiles.remove(profileId)
+    await credentials?.remove(profileId)
+    return null
+  },
   setRepoProfile: async (repo, id) => done(profiles.setRepoProfile(repo, requireNullableString(id, 'profile id'))),
 
   terminalStart: async (repo, cols, rows) =>
@@ -178,4 +193,5 @@ export const createHandlers = (profiles: ProfileStore, terminals: TerminalManage
     done(resolveConflictWithSide(repo, requireRepoPath(repo, path), requireSide(side))),
   continueOperation: async (repo) => continueOperation(repo),
   abortOperation: async (repo) => done(abortOperation(repo))
-})
+  }
+}

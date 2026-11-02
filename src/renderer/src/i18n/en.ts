@@ -3,6 +3,19 @@
  * Placeholders look like {name}. Counted strings use `_one` / `_other` suffixes (see tCount).
  */
 export const en = {
+  'auth.notConnected': 'No git account connected',
+  'auth.github': 'GitHub: @{login}',
+  'auth.tokenAccount': '{username} on {host}',
+  'auth.signInGithub': 'Sign in with GitHub',
+  'auth.githubNotConfigured': 'GitHub sign-in is not configured in this build',
+  'auth.useToken': 'Use an access token (GitLab, Gitea, own server…)',
+  'auth.disconnect': 'Disconnect',
+  'auth.starting': 'Contacting GitHub…',
+  'auth.enterCode': 'Enter this code on the GitHub page that opened:',
+  'auth.waiting': 'Waiting for you to authorize…',
+  'auth.host': 'Host (e.g. gitlab.com)',
+  'auth.username': 'Username',
+  'auth.token': 'Access token',
   'settings.title': 'Settings',
   'settings.theme': 'Theme',
   'settings.theme.dark': 'Dark',

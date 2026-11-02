@@ -130,3 +130,23 @@ export interface ProfileState {
   /** What git itself would use in this repository, for the "Git config" choice. */
   gitIdentity: { name: string | null; email: string | null }
 }
+
+/** What the user must do to approve a GitHub sign-in in the browser (OAuth device flow). */
+export interface GithubDeviceLogin {
+  userCode: string
+  verificationUri: string
+  /** Seconds until the code stops working. */
+  expiresIn: number
+}
+
+/** The git provider a profile is connected to. The token itself never leaves the main process. */
+export type ProfileAuth =
+  | { kind: 'github'; login: string }
+  | { kind: 'token'; host: string; username: string }
+
+export interface ProfileAuthState {
+  /** False when the build has no GitHub OAuth client ID, so browser sign-in cannot start. */
+  githubConfigured: boolean
+  /** Profile id -> its connection; profiles without one are not listed. */
+  byProfile: Record<string, ProfileAuth>
+}

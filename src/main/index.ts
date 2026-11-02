@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell, type MenuItemConstructorOptions } from 'electron'
+import { app, BrowserWindow, safeStorage, dialog, ipcMain, Menu, shell, type MenuItemConstructorOptions } from 'electron'
 import { basename, join } from 'node:path'
 import {
   channelFor,
@@ -11,6 +11,7 @@ import {
 import type { RecentRepo, Workspace } from '../shared/api'
 import type { RepoInfo, Result } from '../shared/types'
 import { resolveRepo } from './git/repo'
+import { Credentials } from './credentials'
 import { createHandlers } from './handlers'
 import { ProfileStore } from './profiles'
 import { TerminalManager } from './terminal'
@@ -18,6 +19,9 @@ import { requireInteger, requireString } from './validate'
 import { WorkspaceStore } from './workspace'
 
 const REPO_ARG_PREFIX = '--repo='
+
+/** Public client ID of GitDesk's GitHub OAuth App (device flow); GITDESK_GITHUB_CLIENT_ID overrides it. */
+const DEFAULT_GITHUB_CLIENT_ID = 'Ov23li6mUVghPm7rlehT'
 
 const repoFromArgv = (argv: readonly string[]): string | null => {
   const arg = argv.find((value) => value.startsWith(REPO_ARG_PREFIX))
@@ -122,6 +126,46 @@ function registerIpc(window: BrowserWindow): void {
     })
   )
 
+  const profiles = new ProfileStore(join(app.getPath('userData'), 'profiles.json'))
+  const credentials = new Credentials({
+    file: join(app.getPath('userData'), 'credentials.json'),
+    clientId: process.env['GITDESK_GITHUB_CLIENT_ID'] ?? DEFAULT_GITHUB_CLIENT_ID,
+    secrets: safeStorage,
+    openExternal: (url) => shell.openExternal(url)
+  })
+  const requireProfile = async (value: unknown): Promise<string> => {
+    const id = requireString(value, 'profile id')
+    if (!(await profiles.list()).some((profile) => profile.id === id)) throw new Error('Profile not found')
+    return id
+  }
+  ipcMain.handle(channelFor('getProfileAuth'), () => toResult(() => credentials.status()))
+  ipcMain.handle(channelFor('githubLoginStart'), () => toResult(() => credentials.startGithubLogin()))
+  ipcMain.handle(channelFor('githubLoginComplete'), (_event, profileId: unknown) =>
+    toResult(async () => credentials.completeGithubLogin(await requireProfile(profileId)))
+  )
+  ipcMain.handle(channelFor('githubLoginCancel'), () =>
+    toResult(async () => {
+      credentials.cancelGithubLogin()
+      return null
+    })
+  )
+  ipcMain.handle(channelFor('setProfileToken'), (_event, profileId: unknown, host: unknown, username: unknown, token: unknown) =>
+    toResult(async () =>
+      credentials.setToken(
+        await requireProfile(profileId),
+        requireString(host, 'host'),
+        requireString(username, 'username'),
+        requireString(token, 'access token')
+      )
+    )
+  )
+  ipcMain.handle(channelFor('removeProfileAuth'), (_event, profileId: unknown) =>
+    toResult(async () => {
+      await credentials.remove(requireString(profileId, 'profile id'))
+      return null
+    })
+  )
+
   const terminals = new TerminalManager((event) => {
     if (!window.isDestroyed()) window.webContents.send(TERMINAL_EVENT_CHANNEL, event)
   })
@@ -130,7 +174,7 @@ function registerIpc(window: BrowserWindow): void {
   window.webContents.on('did-start-navigation', (details) => {
     if (details.isMainFrame && !details.isSameDocument) terminals.stopAll()
   })
-  const handlers = createHandlers(new ProfileStore(join(app.getPath('userData'), 'profiles.json')), terminals)
+  const handlers = createHandlers(profiles, terminals, credentials)
   for (const method of REPO_METHODS) {
     const handler = handlers[method] as (repo: string, ...args: unknown[]) => Promise<unknown>
     ipcMain.handle(channelFor(method), (_event, repoPath: unknown, ...args: unknown[]) =>
