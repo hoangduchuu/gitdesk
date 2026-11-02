@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { authorHue } from '../../../shared/format'
 
 export const initials = (name: string): string =>
@@ -8,10 +9,23 @@ export const initials = (name: string): string =>
     .map((word) => word[0]!.toUpperCase())
     .join('')
 
-/** Local avatar: the author's initials on a colour derived from their email. No network. */
+/** The author's initials on a colour derived from their email: no network. A picture, when given, replaces them. */
 export const avatarColor = (email: string): string => `hsl(${authorHue(email)} 45% 36%)`
 
-export function Avatar({ name, email, size = 36 }: { name: string; email: string; size?: number }) {
+interface AvatarProps {
+  name: string
+  email: string
+  size?: number
+  /** A `data:` URI with the person's picture; the initials show without it or if it cannot be drawn. */
+  src?: string | null
+}
+
+export function Avatar({ name, email, size = 36, src }: AvatarProps) {
+  const [broken, setBroken] = useState(false)
+  useEffect(() => setBroken(false), [src])
+  if (src && !broken) {
+    return <img className="avatar avatar-image" src={src} alt="" width={size} height={size} title={`${name} <${email}>`} onError={() => setBroken(true)} />
+  }
   return (
     <span
       className="avatar"

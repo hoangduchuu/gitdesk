@@ -1,5 +1,5 @@
 import { useT, type MessageKey } from '../i18n'
-import { LINE_WIDTH_PX, updateSettings, useSettings, type GraphLineWidth, type Language, type Theme } from '../hooks/useSettings'
+import { AVATAR_SOURCES, LINE_WIDTH_PX, updateSettings, useSettings, type AvatarSource, type GraphLineWidth, type Language, type Theme } from '../hooks/useSettings'
 import { PALETTES, type PaletteName } from '../palettes'
 import { Icon } from '../icons'
 
@@ -13,6 +13,12 @@ const LANGUAGES: ReadonlyArray<[Language, string]> = [
   ['en', 'English'],
   ['vi', 'Tiếng Việt']
 ]
+
+const AVATAR_LABELS: Record<AvatarSource, MessageKey> = {
+  off: 'settings.avatars.off',
+  provider: 'settings.avatars.provider',
+  gravatar: 'settings.avatars.gravatar'
+}
 
 const WIDTHS: ReadonlyArray<[GraphLineWidth, MessageKey]> = [
   ['thin', 'settings.width.thin'],
@@ -67,6 +73,17 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
               </button>
             ))}
           </div>
+        </fieldset>
+
+        <fieldset className="settings-group">
+          <legend><Icon name="user" size={14} />{t('settings.avatars')}</legend>
+          {AVATAR_SOURCES.map((value) => (
+            <label key={value} className="settings-option">
+              <input type="radio" name="avatar-source" checked={settings.avatars === value} onChange={() => updateSettings({ avatars: value })} />
+              <span className="settings-label wide">{t(AVATAR_LABELS[value])}</span>
+            </label>
+          ))}
+          <p className="muted settings-hint">{t('settings.avatars.hint')}</p>
         </fieldset>
 
         <fieldset className="settings-group">

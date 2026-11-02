@@ -11,6 +11,7 @@ import {
 import type { RecentRepo, Workspace } from '../shared/api'
 import type { RepoInfo, Result } from '../shared/types'
 import { resolveRepo } from './git/repo'
+import { AvatarService } from './avatars'
 import { Credentials } from './credentials'
 import { createHandlers } from './handlers'
 import { ProfileStore } from './profiles'
@@ -174,7 +175,7 @@ function registerIpc(window: BrowserWindow): void {
   window.webContents.on('did-start-navigation', (details) => {
     if (details.isMainFrame && !details.isSameDocument) terminals.stopAll()
   })
-  const handlers = createHandlers(profiles, terminals, credentials)
+  const handlers = createHandlers(profiles, terminals, credentials, new AvatarService({ dir: join(app.getPath('userData'), 'avatars') }))
   for (const method of REPO_METHODS) {
     const handler = handlers[method] as (repo: string, ...args: unknown[]) => Promise<unknown>
     ipcMain.handle(channelFor(method), (_event, repoPath: unknown, ...args: unknown[]) =>
