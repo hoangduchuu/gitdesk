@@ -1,8 +1,7 @@
 import type { GitflowConfig, GitflowKind, GitflowState, MergeOutcome } from '../../shared/model'
-import { readBranches } from './branches'
+import { readBranches, requireCleanTree } from './branches'
 import { allowConflicts } from './conflict'
 import { GitError, runGit } from './exec'
-import { currentOperation } from './status'
 
 const KINDS: readonly GitflowKind[] = ['feature', 'release', 'hotfix']
 
@@ -160,13 +159,6 @@ export interface FinishOptions {
   tagMessage: string | null
 }
 
-const requireCleanTree = async (repo: string): Promise<void> => {
-  if ((await currentOperation(repo)) !== null) throw new Error('Finish the merge, rebase or cherry-pick in progress first')
-  if ((await runGit(repo, ['status', '--porcelain', '--untracked-files=no'])).trim() !== '') {
-    throw new Error('Commit or stash your changes before finishing: Git Flow switches branches')
-  }
-}
-
 /** Merge `source` into `target` with a merge commit; nothing to do when it is already in. */
 async function mergeInto(repo: string, target: string, source: string): Promise<MergeOutcome> {
   if (await isAncestor(repo, source, target)) return { conflicts: false }
@@ -184,7 +176,7 @@ export async function finishGitflow(repo: string, kind: GitflowKind, name: strin
   const config = await requireConfig(repo)
   const full = await requireName(repo, config, kind, name)
   if (!(await branchExists(repo, full))) throw new Error(`The branch ${full} does not exist`)
-  await requireCleanTree(repo)
+  await requireCleanTree(repo, 'finishing')
 
   // Where the work ends up last: develop, or the release in progress for a hotfix.
   let last = config.develop

@@ -3,6 +3,7 @@ import type { GraphNode } from '../../../shared/graph-nodes'
 import { ageMarkers } from '../../../shared/format'
 import { groupRefs, type RefLabel } from '../../../shared/refs'
 import type { GraphRow } from '../../../shared/types'
+import { useBranchDnd, type BranchDrop } from '../branchDrag'
 import { LINE_WIDTH_PX, useSettings } from '../hooks/useSettings'
 import { localeOf, useT, type Translate } from '../i18n'
 import { ChangeIcon } from './ChangeIcon'
@@ -22,10 +23,12 @@ interface Props {
   picked: ReadonlySet<string>
   onSelect: (node: GraphNode, additive: boolean) => void
   onContextMenu: (node: GraphNode, event: MouseEvent) => void
+  /** A branch label was dropped on another: ask what to do (merge, rebase). */
+  onBranchDrop: BranchDrop
 }
 
 /** Virtualised list: only rows near the viewport are rendered, so large histories stay fast. */
-export function CommitGraph({ rows, selectedHash, revealHash, picked, onSelect, onContextMenu }: Props) {
+export function CommitGraph({ rows, selectedHash, revealHash, picked, onSelect, onContextMenu, onBranchDrop }: Props) {
   const t = useT()
   const viewport = useRef<HTMLDivElement>(null)
   const [scrollTop, setScrollTop] = useState(0)
@@ -88,7 +91,7 @@ export function CommitGraph({ rows, selectedHash, revealHash, picked, onSelect, 
                 onContextMenu={(event) => onContextMenu(row.node, event)}
               >
                 <div className="col-refs">
-                  <RefLabels refs={refs} t={t} />
+                  <RefLabels refs={refs} t={t} onBranchDrop={onBranchDrop} />
                 </div>
                 <div className="col-graph">
                   <GraphCell row={row} lanes={lanes} dashed={dashed[index]!} lineWidth={lineWidth} laneColor={laneColor} />
@@ -113,7 +116,7 @@ const MORE_WIDTH = 30
  * Branch and tag labels at full width while they fit the column; the rest fold into "+N"
  * and appear when the row is hovered. Only the first label shrinks, so it is never crowded out.
  */
-function RefLabels({ refs, t }: { refs: readonly RefLabel[]; t: Translate }) {
+function RefLabels({ refs, t, onBranchDrop }: { refs: readonly RefLabel[]; t: Translate; onBranchDrop: BranchDrop }) {
   const box = useRef<HTMLSpanElement>(null)
   const [shown, setShown] = useState(refs.length)
   const key = refs.map((ref) => `${ref.kind}:${ref.label}`).join('\n')
@@ -128,7 +131,7 @@ function RefLabels({ refs, t }: { refs: readonly RefLabel[]; t: Translate }) {
   return (
     <span ref={box} className={`ref-labels${folded > 0 ? ' has-folded' : ''}`} title={refs.map((ref) => ref.label).join('\n')}>
       {refs.map((label, index) => (
-        <RefPill key={`${label.kind}:${label.label}`} label={label} folded={index >= shown} t={t} />
+        <RefPill key={`${label.kind}:${label.label}`} label={label} folded={index >= shown} t={t} onBranchDrop={onBranchDrop} />
       ))}
       {folded > 0 && <span className="ref-more">+{folded}</span>}
     </span>
@@ -151,9 +154,17 @@ function fittingLabels(element: HTMLElement): number {
   return count
 }
 
-function RefPill({ label, folded, t }: { label: RefLabel; folded: boolean; t: Translate }) {
+function RefPill({ label, folded, t, onBranchDrop }: { label: RefLabel; folded: boolean; t: Translate; onBranchDrop: BranchDrop }) {
+  // A label is the local branch when there is one; a remote-only label is the remote branch. Tags are not draggable.
+  const { props, over } = useBranchDnd(
+    { name: label.label, kind: label.local ? 'local' : 'remote' },
+    label.kind === 'branch' ? onBranchDrop : undefined
+  )
   return (
-    <span className={`ref-pill ref-pill-${label.kind}${label.isHead ? ' is-head' : ''}${folded ? ' is-folded' : ''}`}>
+    <span
+      {...props}
+      className={`ref-pill ref-pill-${label.kind}${label.isHead ? ' is-head' : ''}${folded ? ' is-folded' : ''}${over ? ' drop-over' : ''}`}
+    >
       {label.isHead && <span className="ref-icon">✓</span>}
       {label.kind === 'tag' && <span className="ref-icon">◆</span>}
       <span className="ref-name">{label.label}</span>

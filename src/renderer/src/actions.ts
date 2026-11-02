@@ -1,6 +1,7 @@
 import type { ResetMode } from '../../shared/api'
 import type { Branch, GitflowKind, GitflowState, MergeOutcome, Stash, Tag, WorkingTreeStatus } from '../../shared/model'
 import type { Commit, Result } from '../../shared/types'
+import { branchDropActions, type DragBranch } from '../../shared/branch-drag'
 import { api } from './api'
 import type { ChoiceRequest } from './components/ChoiceDialog'
 import { action, heading, separator, type MenuItem } from './components/ContextMenu'
@@ -194,6 +195,29 @@ export function createActions(ctx: ActionContext) {
         })
     })
 
+  // ---------- drag and drop ----------
+  /** The menu shown when a branch is dropped on another: merge it in, or rebase it on top. */
+  const branchDropMenu = (source: DragBranch, target: DragBranch, branches: readonly Branch[]): MenuItem[] => {
+    const params = { source: source.name, target: target.name }
+    const merge = (): void => {
+      void run(t('action.merging'), () => gitdesk.mergeBranchInto(path, source.name, target.name)).then(reportMerge)
+    }
+    const rebase = (): void => {
+      // Rewriting commits that were already pushed makes the next push fail without a force push.
+      const published = branches.some((branch) => branch.kind === 'local' && branch.name === source.name && branch.upstream !== null)
+      if (published && !window.confirm(t('dnd.rebasePublishedConfirm', { name: source.name }))) return
+      void run(t('app.rebasing'), () => gitdesk.rebaseBranch(path, source.name, target.name)).then(reportMerge)
+    }
+    return [
+      heading(`${source.name} → ${target.name}`),
+      ...branchDropActions(source, target).map((kind) =>
+        kind === 'merge'
+          ? action(t('dnd.merge', params), merge, { icon: 'merge' })
+          : action(t('dnd.rebase', params), rebase, { icon: 'rebase' })
+      )
+    ]
+  }
+
   // ---------- git flow ----------
   const baseOf = (kind: GitflowKind, state: GitflowState): string => (kind === 'hotfix' ? state.config.main : state.config.develop)
 
@@ -354,6 +378,7 @@ export function createActions(ctx: ActionContext) {
     dropStash,
     promptStash,
     gitflowMenu,
+    branchDropMenu,
     commitMenu,
     branchMenu,
     tagMenu,

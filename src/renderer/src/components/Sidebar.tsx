@@ -1,4 +1,6 @@
 import type { MouseEvent } from 'react'
+import type { BranchDrop } from '../branchDrag'
+import { useBranchDnd } from '../branchDrag'
 import type { Branch, Stash, Tag } from '../../../shared/model'
 import { useT } from '../i18n'
 import { Icon } from '../icons'
@@ -15,12 +17,14 @@ interface Props {
   onBranchMenu: (branch: Branch, event: MouseEvent) => void
   onTagMenu: (tag: Tag, event: MouseEvent) => void
   onStashMenu: (stash: Stash, event: MouseEvent) => void
+  /** A branch was dropped on another: ask what to do (merge, rebase). */
+  onBranchDrop: BranchDrop
 }
 
 export function Sidebar(props: Props) {
   const t = useT()
   const { branches, stashes, tags, selectedStash, onSelectBranch, onCheckout, onSelectStash } = props
-  const { onSelectTag, onBranchMenu, onTagMenu, onStashMenu } = props
+  const { onSelectTag, onBranchMenu, onTagMenu, onStashMenu, onBranchDrop } = props
   const local = branches.filter((branch) => branch.kind === 'local')
   const remote = branches.filter((branch) => branch.kind === 'remote')
 
@@ -29,19 +33,15 @@ export function Sidebar(props: Props) {
       <h3 className="sidebar-heading"><Icon name="local" size={14} />{t('sidebar.local', { count: local.length })}</h3>
       <ul className="sidebar-list">
         {local.map((branch) => (
-          <li
+          <BranchItem
             key={branch.name}
-            className={`sidebar-item${branch.isHead ? ' head' : ''}`}
-            onClick={() => onSelectBranch(branch)}
-            onDoubleClick={() => onCheckout(branch)}
-            onContextMenu={(event) => onBranchMenu(branch, event)}
+            branch={branch}
             title={t('sidebar.checkoutHint')}
-          >
-            <span className="item-name">{branch.name}</span>
-            {branch.ahead > 0 && <span className="count ahead">↑{branch.ahead}</span>}
-            {branch.behind > 0 && <span className="count behind">↓{branch.behind}</span>}
-            {branch.upstreamGone && <span className="count gone">{t('sidebar.gone')}</span>}
-          </li>
+            onSelect={onSelectBranch}
+            onCheckout={onCheckout}
+            onMenu={onBranchMenu}
+            onDrop={onBranchDrop}
+          />
         ))}
       </ul>
 
@@ -49,16 +49,15 @@ export function Sidebar(props: Props) {
       <ul className="sidebar-list">
         {remote.length === 0 && <li className="sidebar-empty">{t('sidebar.noRemoteBranches')}</li>}
         {remote.map((branch) => (
-          <li
+          <BranchItem
             key={branch.name}
-            className="sidebar-item"
-            onClick={() => onSelectBranch(branch)}
-            onDoubleClick={() => onCheckout(branch)}
-            onContextMenu={(event) => onBranchMenu(branch, event)}
+            branch={branch}
             title={t('sidebar.checkoutLocalHint')}
-          >
-            <span className="item-name">{branch.name}</span>
-          </li>
+            onSelect={onSelectBranch}
+            onCheckout={onCheckout}
+            onMenu={onBranchMenu}
+            onDrop={onBranchDrop}
+          />
         ))}
       </ul>
 
@@ -97,5 +96,36 @@ export function Sidebar(props: Props) {
         ))}
       </ul>
     </nav>
+  )
+}
+
+interface BranchItemProps {
+  branch: Branch
+  title: string
+  onSelect: (branch: Branch) => void
+  onCheckout: (branch: Branch) => void
+  onMenu: (branch: Branch, event: MouseEvent) => void
+  onDrop: BranchDrop
+}
+
+/** A branch in the list: click to find it in the graph, double-click to check out, drag onto another to merge or rebase. */
+function BranchItem({ branch, title, onSelect, onCheckout, onMenu, onDrop }: BranchItemProps) {
+  const t = useT()
+  const { props, over } = useBranchDnd({ name: branch.name, kind: branch.kind }, onDrop)
+  const local = branch.kind === 'local'
+  return (
+    <li
+      {...props}
+      className={`sidebar-item${local && branch.isHead ? ' head' : ''}${over ? ' drop-over' : ''}`}
+      onClick={() => onSelect(branch)}
+      onDoubleClick={() => onCheckout(branch)}
+      onContextMenu={(event) => onMenu(branch, event)}
+      title={title}
+    >
+      <span className="item-name">{branch.name}</span>
+      {local && branch.ahead > 0 && <span className="count ahead">↑{branch.ahead}</span>}
+      {local && branch.behind > 0 && <span className="count behind">↓{branch.behind}</span>}
+      {local && branch.upstreamGone && <span className="count gone">{t('sidebar.gone')}</span>}
+    </li>
   )
 }

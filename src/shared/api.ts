@@ -76,6 +76,10 @@ export interface GitDeskApi {
   checkoutBranch(repo: string, name: string, kind: Branch['kind']): Async<null>
   deleteBranch(repo: string, name: string, force: boolean): Async<null>
   mergeBranch(repo: string, name: string): Async<MergeOutcome>
+  /** Drag and drop: merge `source` into the local branch `target` (checking it out first if needed). */
+  mergeBranchInto(repo: string, source: string, target: string): Async<MergeOutcome>
+  /** Drag and drop: rebase the local branch `branch` onto `onto`. */
+  rebaseBranch(repo: string, branch: string, onto: string): Async<MergeOutcome>
 
   fetch(repo: string): Async<null>
   pull(repo: string): Async<MergeOutcome>
@@ -162,6 +166,8 @@ export const REPO_METHODS = [
   'checkoutBranch',
   'deleteBranch',
   'mergeBranch',
+  'mergeBranchInto',
+  'rebaseBranch',
   'fetch',
   'pull',
   'push',

@@ -5,6 +5,7 @@ import type { Branch, DiffTarget, GitflowConfig, GitflowState } from '../../shar
 import type { RepoInfo } from '../../shared/types'
 import { createActions } from './actions'
 import { api } from './api'
+import type { BranchDrop } from './branchDrag'
 import { ChangesPanel } from './components/ChangesPanel'
 import { ChoiceDialog, type ChoiceRequest } from './components/ChoiceDialog'
 import { CommitGraph } from './components/CommitGraph'
@@ -192,6 +193,11 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
     void run(t('gitflow.initializing'), () => gitdesk.initGitflow(path, config))
   }
 
+  /** A branch was dropped on another (graph label or sidebar): offer merge and rebase where the drop is. */
+  const branchDrop: BranchDrop = (source, target, event) => {
+    setMenu({ x: event.clientX, y: event.clientY, items: actions.branchDropMenu(source, target, data?.branches ?? []) })
+  }
+
   const nodeMenu = (node: GraphNode, event: MouseEvent): void => {
     if (node.kind === 'commit') {
       const hashes = picked.size > 0 ? pickedInOrder(node.hash) : [node.hash]
@@ -288,6 +294,7 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
             onBranchMenu={(branch, event) => openMenu(actions.branchMenu(branch), event)}
             onTagMenu={(tag, event) => openMenu(actions.tagMenu(tag), event)}
             onStashMenu={(stash, event) => openMenu(actions.stashMenu(stash), event)}
+            onBranchDrop={branchDrop}
           />
         ) : (
           <nav className="sidebar" />
@@ -303,6 +310,7 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
               picked={picked}
               onSelect={selectNode}
               onContextMenu={nodeMenu}
+              onBranchDrop={branchDrop}
             />
           )}
           {center.kind === 'diff' && (

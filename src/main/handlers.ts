@@ -6,6 +6,8 @@ import {
   deleteBranch,
   deleteRemoteBranch,
   mergeBranch,
+  mergeBranchInto,
+  rebaseBranch,
   readBranches,
   renameBranch
 } from './git/branches'
@@ -119,6 +121,10 @@ export const createHandlers = (
     done(checkoutBranch(repo, requireString(name, 'branch name'), requireBranchKind(kind))),
   deleteBranch: async (repo, name, force) =>
     done(deleteBranch(repo, requireString(name, 'branch name'), requireBoolean(force, 'force flag'))),
+  mergeBranchInto: async (repo, source, target) =>
+    mergeBranchInto(repo, requireString(source, 'branch name'), requireString(target, 'branch name')),
+  rebaseBranch: async (repo, branch, onto) =>
+    rebaseBranch(repo, requireString(branch, 'branch name'), requireString(onto, 'branch name')),
   mergeBranch: async (repo, name) => mergeBranch(repo, requireString(name, 'branch name')),
 
   fetch: async (repo) => done(fetch(repo, { env: await remoteEnv(repo) })),

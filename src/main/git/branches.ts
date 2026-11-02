@@ -1,6 +1,7 @@
 import type { Branch, MergeOutcome } from '../../shared/model'
 import { allowConflicts } from './conflict'
 import { GitError, runGit } from './exec'
+import { currentOperation } from './status'
 
 const FIELDS = ['%(refname)', '%(objectname)', '%(HEAD)', '%(upstream:short)', '%(upstream:track,nobracket)']
 const LOCAL = 'refs/heads/'
@@ -102,4 +103,47 @@ export async function deleteRemoteBranch(repo: string, remoteBranch: string): Pr
 export function mergeBranch(repo: string, name: string): Promise<MergeOutcome> {
   requireRevision(name)
   return allowConflicts(repo, () => runGit(repo, ['merge', '--no-edit', name]))
+}
+
+/** Refuse to switch branches while a merge is unfinished or tracked files have uncommitted changes. */
+export async function requireCleanTree(repo: string, action: string): Promise<void> {
+  if ((await currentOperation(repo)) !== null) throw new Error('Finish the merge, rebase or cherry-pick in progress first')
+  if ((await runGit(repo, ['status', '--porcelain', '--untracked-files=no'])).trim() !== '') {
+    throw new Error(`Commit or stash your changes before ${action}: it switches branches`)
+  }
+}
+
+/** Branches a drag and drop can name: local ones, and remote ones as the source of a merge or the base of a rebase. */
+const requireKnownBranch = (branches: readonly Branch[], name: string, kind: 'local' | 'any'): Branch => {
+  requireRevision(name)
+  const found = branches.find((branch) => branch.name === name && (kind === 'any' || branch.kind === 'local'))
+  if (!found) throw new Error(kind === 'local' ? `${name} is not a local branch` : `${name} is not a branch`)
+  return found
+}
+
+/** Merge `source` into the local branch `target`, switching to `target` first when it is not checked out. */
+export async function mergeBranchInto(repo: string, source: string, target: string): Promise<MergeOutcome> {
+  const branches = await readBranches(repo)
+  requireKnownBranch(branches, source, 'any')
+  const destination = requireKnownBranch(branches, target, 'local')
+  if (source === target) throw new Error('Choose two different branches')
+  if (!destination.isHead) {
+    await requireCleanTree(repo, 'merging')
+    await runGit(repo, ['switch', target])
+  }
+  return mergeBranch(repo, source)
+}
+
+/**
+ * Replay the local branch `branch` on top of `onto` (a local or remote branch). Git checks
+ * `branch` out for the rebase, so the tree must be clean; conflicts are reported, and the
+ * usual continue and abort controls take over.
+ */
+export async function rebaseBranch(repo: string, branch: string, onto: string): Promise<MergeOutcome> {
+  const branches = await readBranches(repo)
+  const moving = requireKnownBranch(branches, branch, 'local')
+  requireKnownBranch(branches, onto, 'any')
+  if (branch === onto) throw new Error('Choose two different branches')
+  if (!moving.isHead) await requireCleanTree(repo, 'rebasing')
+  return allowConflicts(repo, () => runGit(repo, ['rebase', onto, branch]))
 }
