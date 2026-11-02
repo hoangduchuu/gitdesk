@@ -25,6 +25,7 @@ import { interactiveRebase, readRebaseCommits } from './git/rebase'
 import { finishGitflow, initGitflow, readGitflow, startGitflow } from './git/gitflow'
 import { createTag, deleteRemoteTag, deleteTag, pushTag, readTags } from './git/tags'
 import { readLog } from './git/log'
+import { rewordCommit } from './git/reword'
 import { addRemote, fetch, pull, push, readRemotes, removeRemote, setRemoteUrl } from './git/remote'
 import { publishRepository } from './publish'
 import { readStashes, requireStashRef, stashApply, stashDrop, stashPop, stashPush } from './git/stash'
@@ -110,6 +111,9 @@ export const createHandlers = (
       commit(repo, requireString(message, 'commit message'), requireBoolean(amend, 'amend flag'), await profiles.repoProfile(repo))
     ),
 
+  rewordCommit: async (repo, hash, message) =>
+    rewordCommit(repo, requireHash(hash), requireString(message, 'commit message'), await profiles.repoProfile(repo)),
+
   createBranch: async (repo, name, startPoint, checkout) =>
     done(
       createBranch(
@@ -149,7 +153,7 @@ export const createHandlers = (
 
   fetch: async (repo) => done(fetch(repo, { env: await remoteEnv(repo) })),
   pull: async (repo) => pull(repo, { env: await remoteEnv(repo) }),
-  push: async (repo) => done(push(repo, { env: await remoteEnv(repo) })),
+  push: async (repo, force) => done(push(repo, { env: await remoteEnv(repo) }, requireBoolean(force, 'force flag'))),
 
   stashPush: async (repo, message, includeUntracked) =>
     done(

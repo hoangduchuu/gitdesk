@@ -18,6 +18,7 @@ import type {
   PublishInput,
   PublishResult,
   RemoteState,
+  RewordResult,
   RebaseStep,
   Stash,
   StashFile,
@@ -74,6 +75,8 @@ export interface GitDeskApi {
   unstage(repo: string, paths: string[]): Async<null>
   discard(repo: string, changes: FileChange[]): Async<null>
   commit(repo: string, message: string, amend: boolean): Async<null>
+  /** Change the message of a commit on the current branch (rewrites it and everything after it). */
+  rewordCommit(repo: string, hash: string, message: string): Async<RewordResult>
 
   createBranch(repo: string, name: string, startPoint: string | null, checkout: boolean): Async<null>
   checkoutBranch(repo: string, name: string, kind: Branch['kind']): Async<null>
@@ -94,7 +97,8 @@ export interface GitDeskApi {
 
   fetch(repo: string): Async<null>
   pull(repo: string): Async<MergeOutcome>
-  push(repo: string): Async<null>
+  /** `force` replaces the remote branch, but only if nobody pushed to it since the last fetch. */
+  push(repo: string, force: boolean): Async<null>
 
   stashPush(repo: string, message: string, includeUntracked: boolean): Async<null>
   stashApply(repo: string, ref: string): Async<MergeOutcome>
@@ -173,6 +177,7 @@ export const REPO_METHODS = [
   'unstage',
   'discard',
   'commit',
+  'rewordCommit',
   'createBranch',
   'checkoutBranch',
   'deleteBranch',

@@ -3,6 +3,7 @@ import type { Branch, GitflowKind, GitflowState, MergeOutcome, Remote, Stash, Ta
 import { maskUrl } from '../../shared/remote-url'
 import type { Commit, Result } from '../../shared/types'
 import { branchDropActions, type DragBranch } from '../../shared/branch-drag'
+import { isPushRejected } from '../../shared/push-error'
 import { api } from './api'
 import type { ChoiceRequest } from './components/ChoiceDialog'
 import { action, heading, separator, type MenuItem } from './components/ContextMenu'
@@ -196,6 +197,57 @@ export function createActions(ctx: ActionContext) {
         })
     })
 
+  // ---------- push and pull ----------
+  const pull = (): void => {
+    void run(t('app.pulling'), () => gitdesk.pull(path)).then(reportMerge)
+  }
+  const forcePush = (): void => {
+    void run(t('app.forcePushing'), () => gitdesk.push(path, true))
+  }
+  /** Force push after the user agreed; used by menus, where nothing else has asked yet. */
+  const confirmForcePush = (): void => {
+    if (window.confirm(t('action.forcePushConfirm', { branch: current }))) forcePush()
+  }
+  /** Push; when git refuses because history diverged, offer to pull first or to force push. */
+  const push = (): void => {
+    void run(t('app.pushing'), () => gitdesk.push(path, false), { showError: (error) => !isPushRejected(error) }).then((result) => {
+      if (result.ok || !isPushRejected(result.error)) return
+      ctx.choose({
+        title: t('action.pushRejectedTitle'),
+        message: t('action.pushRejected', { branch: current }),
+        choices: [
+          { label: t('action.pullFirst'), hint: t('action.pullFirstHint'), onSelect: pull },
+          { label: t('action.forcePush'), hint: t('action.forcePushHint'), onSelect: forcePush }
+        ]
+      })
+    })
+  }
+
+  // ---------- commit message ----------
+  const promptReword = (commit: Commit): void =>
+    ctx.prompt({
+      title: t('action.editMessage', { hash: short(commit.hash) }),
+      label: t('action.commitMessage'),
+      initial: commit.body ? `${commit.subject}\n\n${commit.body}` : commit.subject,
+      multiline: true,
+      submitLabel: t('action.saveMessage'),
+      onSubmit: (message) =>
+        void run(t('action.rewording'), () => gitdesk.rewordCommit(path, commit.hash, message)).then((result) => {
+          if (!result.ok) return
+          ctx.onSelectionGone() // the commit has a new hash now
+          reportMerge(result)
+          if (result.data.conflicts || !result.data.published || !status?.upstream) return
+          ctx.choose({
+            title: t('action.rewrittenTitle'),
+            message: t('action.rewrittenPublished'),
+            choices: [
+              { label: t('action.leaveLocal'), hint: t('action.leaveLocalHint'), onSelect: () => undefined },
+              { label: t('action.forcePush'), hint: t('action.forcePushHint'), onSelect: forcePush }
+            ]
+          })
+        })
+    })
+
   // ---------- remotes ----------
   const promptAddRemote = (): void =>
     ctx.prompt({
@@ -341,6 +393,7 @@ export function createActions(ctx: ActionContext) {
     const many = picked.length > 1 && picked.includes(commit.hash)
     return [
       heading(`${short(commit.hash)} ${commit.subject}`),
+      action(t('menu.editMessage'), () => promptReword(commit), { icon: 'rename', disabled: many }),
       many
         ? action(t('menu.cherryPickCommits', { count: picked.length }), () => cherryPick([...picked]), { icon: 'cherryPick' })
         : action(t('menu.cherryPickCommit'), () => cherryPick([commit.hash]), { icon: 'cherryPick' }),
@@ -369,6 +422,9 @@ export function createActions(ctx: ActionContext) {
         icon: 'checkout'
       }),
       action(t('menu.mergeBranch', { name: branch.name, current }), () => merge(branch.name), { icon: 'merge', disabled: branch.isHead }),
+      ...(!isRemote && branch.isHead && branch.upstream !== null
+        ? [action(t('menu.forcePushBranch', { name: branch.name }), confirmForcePush, { icon: 'upload', danger: true })]
+        : []),
       ...(isRemote
         ? [separator, action(t('menu.deleteRemoteBranch', { name: branch.name }), () => deleteRemoteBranch(branch.name), { icon: 'deleteRemote', danger: true })]
         : [
@@ -404,6 +460,9 @@ export function createActions(ctx: ActionContext) {
 
   return {
     reportMerge,
+    pull,
+    push,
+    confirmForcePush,
     checkout,
     merge,
     deleteBranch,

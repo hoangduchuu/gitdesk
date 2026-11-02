@@ -76,6 +76,7 @@ const noRepoToolbar = (onOpen: () => void, onSettings: () => void) => ({
   onPush: noop,
   onBranch: noop,
   onGitflow: noop,
+  onPushMenu: noop,
   onStash: noop,
   onPop: noop,
   onProfiles: noop,

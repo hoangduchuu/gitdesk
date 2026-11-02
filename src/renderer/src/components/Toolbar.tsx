@@ -17,6 +17,8 @@ interface Props {
   onFetch: () => void
   onPull: () => void
   onPush: () => void
+  /** Right-click on Push: Push and Force push. */
+  onPushMenu: (event: MouseEvent) => void
   onBranch: () => void
   /** Opens the Git Flow menu (start and finish feature, release, hotfix). */
   onGitflow: (event: MouseEvent) => void
@@ -32,6 +34,7 @@ interface ToolProps {
   icon: IconName
   label: string
   onClick: (event: MouseEvent) => void
+  onContextMenu?: (event: MouseEvent) => void
   disabled?: boolean
   active?: boolean
   /** The operation this button started is running: the icon spins. */
@@ -42,10 +45,10 @@ interface ToolProps {
 }
 
 /** GitKraken-style toolbar button: icon on top, label below. */
-function Tool({ icon, label, onClick, disabled, active, loading, badge, title }: ToolProps) {
+function Tool({ icon, label, onClick, onContextMenu, disabled, active, loading, badge, title }: ToolProps) {
   const classes = `tool${active ? ' active' : ''}${loading ? ' loading' : ''}`
   return (
-    <button type="button" className={classes} disabled={disabled} onClick={onClick} title={title ?? label} aria-busy={loading}>
+    <button type="button" className={classes} disabled={disabled} onClick={onClick} onContextMenu={onContextMenu} title={title ?? label} aria-busy={loading}>
       <span className="tool-icon">
         <Icon name={loading && icon !== 'fetch' ? 'loading' : icon} size={18} />
         {badge !== undefined && badge > 0 && <span className="tool-badge">{badge}</span>}
@@ -75,7 +78,7 @@ function useMinimumVisible(value: string | null): string | null {
 
 export function Toolbar(props: Props) {
   const t = useT()
-  const { repo, status, busy, stashCount, onOpen, onFetch, onPull, onPush, onBranch, onGitflow, onStash, onPop, onProfiles } = props
+  const { repo, status, busy, stashCount, onOpen, onFetch, onPull, onPush, onPushMenu, onBranch, onGitflow, onStash, onPop, onProfiles } = props
   const { terminalOpen, onTerminal, onSettings, onRepoMenu, onBranchMenu } = props
   const running = useMinimumVisible(busy)
   const disabled = repo === null || running !== null
@@ -103,11 +106,25 @@ export function Toolbar(props: Props) {
           </button>
         </span>
       )}
-      {running && <span className="busy">{running}…</span>}
+      {running && (
+        <span className="busy" role="status">
+          <Icon name="loading" size={14} />
+          {running}…
+        </span>
+      )}
       <span className="toolbar-actions">
         <Tool icon="fetch" label={t('toolbar.fetch')} onClick={onFetch} disabled={disabled} loading={running === t('app.fetching')} />
         <Tool icon="pull" label={t('toolbar.pull')} onClick={onPull} disabled={disabled || status?.upstream === null} title={status?.upstream === null ? t('toolbar.noUpstream') : undefined} loading={running === t('app.pulling')} badge={status?.behind} />
-        <Tool icon="push" label={t('toolbar.push')} onClick={onPush} disabled={disabled} loading={running === t('app.pushing')} badge={status?.ahead} />
+        <Tool
+          icon="push"
+          label={t('toolbar.push')}
+          onClick={onPush}
+          onContextMenu={onPushMenu}
+          disabled={disabled}
+          loading={running === t('app.pushing') || running === t('app.forcePushing') || running === t('publish.publishing')}
+          badge={status?.ahead}
+          title={`${t('toolbar.push')} (${t('toolbar.pushHint')})`}
+        />
         <span className="toolbar-separator" />
         <Tool icon="newBranch" label={t('toolbar.branch')} onClick={onBranch} disabled={disabled} />
         <Tool icon="gitflow" label={t('gitflow.title')} onClick={onGitflow} disabled={disabled} />
@@ -125,6 +142,7 @@ export function Toolbar(props: Props) {
         <Tool icon="profiles" label={t('toolbar.profiles')} onClick={onProfiles} disabled={repo === null} />
         <Tool icon="settings" label={t('settings.title')} onClick={onSettings} />
       </span>
+      {running && <span className="toolbar-progress" role="progressbar" aria-label={`${running}…`} />}
     </header>
   )
 }
