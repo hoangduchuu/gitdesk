@@ -214,3 +214,16 @@ export interface RewordResult extends MergeOutcome {
   /** The commit was already on a remote branch, so pushing the rewritten history needs a force push. */
   published: boolean
 }
+
+/** Who made a commit and who recorded it; the two differ after a rebase, cherry-pick or a web merge. */
+export interface CommitDetails {
+  hash: string
+  authorName: string
+  authorEmail: string
+  /** Unix seconds */
+  authorTime: number
+  committerName: string
+  committerEmail: string
+  /** Unix seconds */
+  committerTime: number
+}

@@ -4,12 +4,15 @@ import { PALETTES, type PaletteName } from '../palettes'
 export type GraphLineWidth = 'thin' | 'normal' | 'thick'
 export type Theme = 'dark' | 'light'
 export type Language = 'en' | 'vi'
+/** Where author pictures come from: nowhere (initials), the git provider, or the provider and Gravatar. */
+export type AvatarSource = 'off' | 'provider' | 'gravatar'
 
 export interface Settings {
   graphLineWidth: GraphLineWidth
   graphPalette: PaletteName
   theme: Theme
   language: Language
+  avatars: AvatarSource
 }
 
 /** Stroke width in pixels for each graph line setting. */
@@ -18,11 +21,12 @@ export const LINE_WIDTH_PX: Record<GraphLineWidth, number> = { thin: 1.5, normal
 const STORAGE_KEY = 'gitdesk.settings'
 const THEMES: readonly Theme[] = ['dark', 'light']
 const LANGUAGES: readonly Language[] = ['en', 'vi']
+export const AVATAR_SOURCES: readonly AvatarSource[] = ['off', 'provider', 'gravatar']
 
 /** First launch follows the system language: Vietnamese on a Vietnamese system, English otherwise. */
 const systemLanguage = (): Language => (navigator.language.toLowerCase().startsWith('vi') ? 'vi' : 'en')
 
-const defaults = (): Settings => ({ graphLineWidth: 'thin', graphPalette: 'vivid', theme: 'dark', language: systemLanguage() })
+const defaults = (): Settings => ({ graphLineWidth: 'thin', graphPalette: 'vivid', theme: 'dark', language: systemLanguage(), avatars: 'provider' })
 
 const pick = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
   allowed.includes(value as T) ? (value as T) : fallback
@@ -35,7 +39,8 @@ const readStored = (): Settings => {
       graphLineWidth: pick(parsed.graphLineWidth, Object.keys(LINE_WIDTH_PX) as GraphLineWidth[], base.graphLineWidth),
       graphPalette: pick(parsed.graphPalette, Object.keys(PALETTES) as PaletteName[], base.graphPalette),
       theme: pick(parsed.theme, THEMES, base.theme),
-      language: pick(parsed.language, LANGUAGES, base.language)
+      language: pick(parsed.language, LANGUAGES, base.language),
+      avatars: pick(parsed.avatars, AVATAR_SOURCES, base.avatars)
     }
   } catch {
     return base

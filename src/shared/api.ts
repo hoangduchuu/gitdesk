@@ -1,6 +1,7 @@
 import type { HunkSelection } from './partial-patch'
 import type {
   Branch,
+  CommitDetails,
   ConflictDetail,
   ConflictSide,
   DiffTarget,
@@ -68,6 +69,12 @@ export interface GitDeskApi {
   getBranches(repo: string): Async<Branch[]>
   getStashes(repo: string): Async<Stash[]>
   getCommitFiles(repo: string, hash: string): Async<FileChange[]>
+  getCommitDetails(repo: string, hash: string): Async<CommitDetails>
+  /**
+   * Pictures for the given author emails as `data:` URIs (null where none is found), looked up on
+   * the repository's git provider and, when `gravatar` is true, on Gravatar.
+   */
+  getAvatars(repo: string, hash: string, emails: string[], gravatar: boolean): Async<Record<string, string | null>>
   getStashFiles(repo: string, ref: string): Async<StashFile[]>
   getDiff(repo: string, target: DiffTarget): Async<string>
 
@@ -171,6 +178,8 @@ export const REPO_METHODS = [
   'getBranches',
   'getStashes',
   'getCommitFiles',
+  'getCommitDetails',
+  'getAvatars',
   'getStashFiles',
   'getDiff',
   'stage',

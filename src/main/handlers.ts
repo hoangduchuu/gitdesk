@@ -24,13 +24,14 @@ import { applySelection } from './git/partial'
 import { interactiveRebase, readRebaseCommits } from './git/rebase'
 import { finishGitflow, initGitflow, readGitflow, startGitflow } from './git/gitflow'
 import { createTag, deleteRemoteTag, deleteTag, pushTag, readTags } from './git/tags'
-import { readLog } from './git/log'
+import { readCommitDetails, readLog } from './git/log'
 import { rewordCommit } from './git/reword'
 import { addRemote, fetch, pull, push, readRemotes, removeRemote, setRemoteUrl } from './git/remote'
 import { publishRepository } from './publish'
 import { readStashes, requireStashRef, stashApply, stashDrop, stashPop, stashPush } from './git/stash'
 import { readStatus } from './git/status'
 import { commit, discard, gitIdentity, stage, unstage } from './git/worktree'
+import type { AvatarService } from './avatars'
 import type { Credentials } from './credentials'
 import type { ProfileStore } from './profiles'
 import type { TerminalManager } from './terminal'
@@ -59,6 +60,8 @@ import {
 
 const MAX_LOG_LIMIT = 50_000
 const MAX_TERMINAL_SIZE = 1000
+/** A commit has an author and a committer; a few more leaves room for the caller. */
+const MAX_AVATAR_EMAILS = 8
 /** Pasting more than this at once is refused rather than flooding the shell. */
 const MAX_TERMINAL_INPUT = 1_000_000
 
@@ -85,7 +88,9 @@ export const createHandlers = (
   profiles: ProfileStore,
   terminals: TerminalManager,
   /** Provider connections of the profiles; without it git runs with the user's own credentials. */
-  credentials: Pick<Credentials, 'gitEnv' | 'remove' | 'status' | 'accessFor'> | null = null
+  credentials: Pick<Credentials, 'gitEnv' | 'remove' | 'status' | 'accessFor'> | null = null,
+  /** Looks up author pictures; without it none are shown. */
+  avatars: Pick<AvatarService, 'lookup'> | null = null
 ): RepoHandlers => {
   /** Remote commands authenticate as the profile the repository commits with. */
   const remoteEnv = async (repo: string): Promise<Record<string, string>> =>
@@ -95,6 +100,24 @@ export const createHandlers = (
   getStatus: async (repo) => readStatus(repo),
   getBranches: async (repo) => readBranches(repo),
   getStashes: async (repo) => readStashes(repo),
+  getCommitDetails: async (repo, hash) => readCommitDetails(repo, requireHash(hash)),
+  getAvatars: async (repo, hash, emails, gravatar) => {
+    const commitHash = requireHash(hash)
+    const list = Array.isArray(emails) ? emails.map((email) => requireString(email, 'email')) : []
+    if (!Array.isArray(emails) || list.length > MAX_AVATAR_EMAILS || list.some((email) => email.length > 320)) throw new Error('Invalid emails')
+    const useGravatar = requireBoolean(gravatar, 'Gravatar flag')
+    if (!avatars) return Object.fromEntries(list.map((email) => [email, null]))
+    const remotes = await readRemotes(repo)
+    const remote = remotes.find((candidate) => candidate.name === 'origin') ?? remotes[0]
+    const profile = await profiles.repoProfile(repo)
+    return avatars.lookup({
+      remoteUrl: remote?.fetchUrl ?? null,
+      hash: commitHash,
+      emails: list,
+      gravatar: useGravatar,
+      access: credentials ? await credentials.accessFor(profile?.id ?? null) : null
+    })
+  },
   getCommitFiles: async (repo, hash) => readCommitFiles(repo, requireHash(hash)),
   getStashFiles: async (repo, ref) => readStashFiles(repo, stashRef(ref)),
   getDiff: async (repo, target) => {
