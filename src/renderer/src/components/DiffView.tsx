@@ -6,6 +6,8 @@ import { api, errorMessage, unwrap } from '../api'
 import { highlightLine, languageFor, type Language } from '../highlight'
 import { useT, useTCount, type Translate } from '../i18n'
 import { Icon } from '../icons'
+import { viewerFor } from '../../../shared/viewers'
+import { FileViewer } from './FileViewer'
 
 type State = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; raw: string; diff: ParsedDiff }
 
@@ -39,6 +41,8 @@ export function DiffView({ repo, target, title, staging, onClose }: Props) {
   const tCount = useTCount()
   const [state, setState] = useState<State>({ kind: 'loading' })
   const [selected, setSelected] = useState<Selected>(new Map())
+  const previewable = viewerFor(target.path) !== null
+  const [preview, setPreview] = useState(true)
 
   const load = useCallback(() => {
     let cancelled = false
@@ -103,6 +107,11 @@ export function DiffView({ repo, target, title, staging, onClose }: Props) {
             ))}
           </span>
         )}
+        {previewable && state.kind === 'ready' && !state.diff.binary && (
+          <button type="button" className="ghost" onClick={() => setPreview((p) => !p)}>
+            {t(preview ? 'viewer.showDiff' : 'viewer.showPreview')}
+          </button>
+        )}
         <button type="button" className="ghost" onClick={onClose}>
           <Icon name="close" size={14} />{t('diff.close')}
         </button>
@@ -110,7 +119,10 @@ export function DiffView({ repo, target, title, staging, onClose }: Props) {
       <div className="diff-body">
         {state.kind === 'loading' && <p className="hint">{t('diff.loading')}</p>}
         {state.kind === 'error' && <p className="error">{state.message}</p>}
-        {state.kind === 'ready' && (
+        {state.kind === 'ready' && (state.diff.binary || (previewable && preview)) && (
+          <FileViewer repo={repo} target={target} />
+        )}
+        {state.kind === 'ready' && !state.diff.binary && !(previewable && preview) && (
           <DiffTable
             diff={state.diff}
             language={languageFor(target.path)}
