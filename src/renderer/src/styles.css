@@ -568,8 +568,15 @@ textarea {
 }
 
 .busy {
-  color: var(--text-dim);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   min-width: 110px;
+  color: var(--accent);
+}
+
+.busy .icon {
+  animation: tool-spin 0.9s linear infinite;
 }
 
 .banner {
@@ -2265,4 +2272,64 @@ button.recent-repo:hover {
 
 .profile-form label.checkbox input {
   margin: 0;
+}
+
+/* A thin bar sliding along the bottom of the toolbar while an operation runs. */
+.toolbar {
+  position: relative;
+}
+
+.toolbar-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.toolbar-progress::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 30%;
+  background: var(--accent);
+  border-radius: 1px;
+  animation: toolbar-progress 1.2s ease-in-out infinite;
+}
+
+@keyframes toolbar-progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toolbar-progress::before,
+  .busy .icon {
+    animation-duration: 3s;
+  }
+}
+
+button.tool.loading:disabled {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.modal textarea {
+  width: 100%;
+  resize: vertical;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px;
+  font: inherit;
+  font-family: var(--font-mono);
+  box-sizing: border-box;
 }

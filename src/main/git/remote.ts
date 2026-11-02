@@ -27,15 +27,34 @@ export const defaultRemote = async (repo: string): Promise<string> => {
   return remotes.includes(PREFERRED_REMOTE) ? PREFERRED_REMOTE : remotes[0]!
 }
 
-/** Push the current branch, publishing it with an upstream the first time. */
-export async function push(repo: string, options: RunOptions = {}): Promise<void> {
+/**
+ * Run a push; when forcing, only over what we last saw: `--force-with-lease` refuses if the remote
+ * branch moved since the last fetch, and `--force-if-includes` if what we fetched was never merged.
+ * Older git versions without the second flag fall back to the first.
+ */
+async function pushForced(force: boolean, run: (flags: string[]) => Promise<unknown>): Promise<void> {
+  if (!force) {
+    await run([])
+    return
+  }
+  try {
+    await run(['--force-with-lease', '--force-if-includes'])
+  } catch (error) {
+    if (!(error instanceof GitError) || !/unknown option.*force-if-includes/.test(error.stderr)) throw error
+    await run(['--force-with-lease'])
+  }
+}
+
+/** Push the current branch, publishing it with an upstream the first time. `force` replaces the remote branch (safely, see pushForced). */
+export async function push(repo: string, options: RunOptions = {}, force = false): Promise<void> {
   const status = await readStatus(repo)
   if (status.branch === null) throw new Error('Cannot push a detached HEAD; create a branch first')
   if (status.upstream !== null) {
-    await runGit(repo, ['push'], options)
+    await pushForced(force, (flags) => runGit(repo, ['push', ...flags], options))
     return
   }
-  await runGit(repo, ['push', '-u', await defaultRemote(repo), 'HEAD'], options)
+  const remote = await defaultRemote(repo)
+  await pushForced(force, (flags) => runGit(repo, ['push', '-u', ...flags, remote, 'HEAD'], options))
 }
 
 const remoteNames = async (repo: string): Promise<string[]> =>

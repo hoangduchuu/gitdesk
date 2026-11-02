@@ -59,7 +59,7 @@ const todoLines = async (steps: readonly RebaseStep[], dir: string): Promise<str
     }
     const messageFile = join(dir, `message-${index}.txt`)
     await writeFile(messageFile, `${step.message!.trim()}\n`, 'utf8')
-    lines.push(`pick ${step.hash}`, `exec git commit --amend --quiet -F ${shellQuote(messageFile)}`)
+    lines.push(`pick ${step.hash}`, `exec git commit --amend --allow-empty --quiet -F ${shellQuote(messageFile)}`)
   }
   return lines
 }

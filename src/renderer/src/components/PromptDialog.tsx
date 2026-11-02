@@ -8,6 +8,8 @@ export interface PromptRequest {
   submitLabel: string
   /** Optional checkbox, e.g. "Include untracked files". */
   option?: { label: string; initial: boolean }
+  /** A several-line text box (a commit message); Cmd/Ctrl+Enter submits. */
+  multiline?: boolean
   /** Allow submitting an empty value (e.g. stash without a message). */
   allowEmpty?: boolean
   onSubmit: (value: string, option: boolean) => void
@@ -43,7 +45,20 @@ export function PromptDialog({ request, onClose }: Props) {
         <h2>{request.title}</h2>
         <label>
           {request.label}
-          <input autoFocus value={value} onChange={(event) => setValue(event.target.value)} />
+          {request.multiline ? (
+            <textarea
+              autoFocus
+              rows={8}
+              value={value}
+              spellCheck
+              onChange={(event) => setValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) event.currentTarget.form?.requestSubmit()
+              }}
+            />
+          ) : (
+            <input autoFocus value={value} onChange={(event) => setValue(event.target.value)} />
+          )}
         </label>
         {request.option && (
           <label className="checkbox">

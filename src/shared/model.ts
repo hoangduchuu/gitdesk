@@ -209,3 +209,8 @@ export interface PublishResult {
   /** Address of the new repository in a browser. */
   webUrl: string
 }
+
+export interface RewordResult extends MergeOutcome {
+  /** The commit was already on a remote branch, so pushing the rewritten history needs a force push. */
+  published: boolean
+}

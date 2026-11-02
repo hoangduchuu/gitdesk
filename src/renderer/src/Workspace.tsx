@@ -193,7 +193,18 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
   /** Pushing a repository that has no remote publishes it instead. */
   const push = (): void => {
     if (data && data.remotes.remotes.length === 0) setPublishOpen(true)
-    else void run(t('app.pushing'), () => gitdesk.push(path))
+    else actions.push()
+  }
+
+  const pushMenu = (event: MouseEvent): void => {
+    const canForce = (data?.remotes.remotes.length ?? 0) > 0 && status?.upstream != null
+    openMenu(
+      [
+        action(t('toolbar.push'), push, { icon: 'push' }),
+        action(t('menu.forcePush'), actions.confirmForcePush, { icon: 'upload', danger: true, disabled: !canForce })
+      ],
+      event
+    )
   }
 
   const publishNew = (input: PublishInput): void => {
@@ -207,7 +218,7 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
     setPublishOpen(false)
     void run(t('publish.publishing'), async () => {
       const added = await gitdesk.addRemote(path, remote, url)
-      return added.ok ? gitdesk.push(path) : added
+      return added.ok ? gitdesk.push(path, false) : added
     })
   }
 
@@ -272,8 +283,9 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
         onRepoMenu={repoMenu}
         onBranchMenu={data ? branchMenu : undefined}
         onFetch={() => void run(t('app.fetching'), () => gitdesk.fetch(path))}
-        onPull={() => void run(t('app.pulling'), () => gitdesk.pull(path)).then(actions.reportMerge)}
+        onPull={actions.pull}
         onPush={push}
+        onPushMenu={pushMenu}
         onBranch={() => actions.promptCreateBranch(null)}
         onGitflow={gitflowMenu}
         onStash={actions.promptStash}
