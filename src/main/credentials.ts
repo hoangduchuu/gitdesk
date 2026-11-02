@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import type { GithubDeviceLogin, ProfileAuth, ProfileAuthState } from '../shared/model'
+import type { ProviderAccess } from './publish'
 
 const DEVICE_CODE_URL = 'https://github.com/login/device/code'
 const TOKEN_URL = 'https://github.com/login/oauth/access_token'
@@ -178,6 +179,21 @@ export class Credentials {
       GIT_CONFIG_VALUE_1: `git@${sshName}:`,
       GIT_CONFIG_KEY_2: `url.https://${host}/.insteadOf`,
       GIT_CONFIG_VALUE_2: `ssh://git@${sshName}/`
+    }
+  }
+
+  /** The host, user and token of a profile's connection, for calls the main process makes itself. */
+  async accessFor(profileId: string | null): Promise<ProviderAccess | null> {
+    if (profileId === null) return null
+    const entry = (await this.read())[profileId]
+    if (!entry) return null
+    try {
+      const token = this.options.secrets.decryptString(Buffer.from(entry.token, 'base64'))
+      return entry.kind === 'github'
+        ? { host: GITHUB_HOST, username: entry.login, token }
+        : { host: entry.host, username: entry.username, token }
+    } catch {
+      return null // Keychain changed or entry unreadable: behave as not connected.
     }
   }
 

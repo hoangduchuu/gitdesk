@@ -1,5 +1,6 @@
 import type { ResetMode } from '../../shared/api'
-import type { Branch, GitflowKind, GitflowState, MergeOutcome, Stash, Tag, WorkingTreeStatus } from '../../shared/model'
+import type { Branch, GitflowKind, GitflowState, MergeOutcome, Remote, Stash, Tag, WorkingTreeStatus } from '../../shared/model'
+import { maskUrl } from '../../shared/remote-url'
 import type { Commit, Result } from '../../shared/types'
 import { branchDropActions, type DragBranch } from '../../shared/branch-drag'
 import { api } from './api'
@@ -195,6 +196,41 @@ export function createActions(ctx: ActionContext) {
         })
     })
 
+  // ---------- remotes ----------
+  const promptAddRemote = (): void =>
+    ctx.prompt({
+      title: t('action.addRemote'),
+      label: t('action.remoteName'),
+      initial: 'origin',
+      submitLabel: t('action.addRemote'),
+      onSubmit: (name) =>
+        ctx.prompt({
+          title: t('action.addRemoteUrl', { name }),
+          label: t('action.remoteUrl'),
+          submitLabel: t('action.addRemote'),
+          onSubmit: (url) => void run(t('action.addingRemote'), () => gitdesk.addRemote(path, name, url))
+        })
+    })
+  const promptRemoteUrl = (remote: Remote): void =>
+    ctx.prompt({
+      title: t('action.changeRemoteUrl', { name: remote.name }),
+      label: t('action.remoteUrl'),
+      initial: remote.fetchUrl,
+      submitLabel: t('action.changeUrl'),
+      onSubmit: (url) => void run(t('action.changingRemoteUrl'), () => gitdesk.setRemoteUrl(path, remote.name, url))
+    })
+  const removeRemote = (remote: Remote): void => {
+    if (!window.confirm(t('action.removeRemoteConfirm', { name: remote.name, url: maskUrl(remote.fetchUrl) }))) return
+    void run(t('action.removingRemote'), () => gitdesk.removeRemote(path, remote.name))
+  }
+  const remoteMenu = (remote: Remote): MenuItem[] => [
+    heading(remote.name),
+    action(t('menu.changeRemoteUrl'), () => promptRemoteUrl(remote), { icon: 'rename' }),
+    action(t('menu.copyRemoteUrl'), () => copy(remote.fetchUrl, t('copy.remoteUrl')), { icon: 'copy' }),
+    separator,
+    action(t('menu.removeRemote', { name: remote.name }), () => removeRemote(remote), { icon: 'delete', danger: true })
+  ]
+
   // ---------- drag and drop ----------
   /** The menu shown when a branch is dropped on another: merge it in, or rebase it on top. */
   const branchDropMenu = (source: DragBranch, target: DragBranch, branches: readonly Branch[]): MenuItem[] => {
@@ -377,6 +413,8 @@ export function createActions(ctx: ActionContext) {
     popStash,
     dropStash,
     promptStash,
+    promptAddRemote,
+    remoteMenu,
     gitflowMenu,
     branchDropMenu,
     commitMenu,

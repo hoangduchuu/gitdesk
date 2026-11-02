@@ -177,4 +177,14 @@ describe('Credentials', () => {
     })
     expect(await broken.gitEnv('p1')).toEqual({})
   })
+
+  test('accessFor gives the main process the host, user and token of a profile, and null when not connected', async () => {
+    const { auth } = make(login())
+    expect(await auth.accessFor('p1')).toBeNull()
+    expect(await auth.accessFor(null)).toBeNull()
+    await connect(auth, 'p1')
+    await auth.setToken('p2', 'git.example.com:8443', 'me', 'tok')
+    expect(await auth.accessFor('p1')).toEqual({ host: 'github.com', username: 'octo', token: 'gho_secret' })
+    expect(await auth.accessFor('p2')).toEqual({ host: 'git.example.com:8443', username: 'me', token: 'tok' })
+  })
 })

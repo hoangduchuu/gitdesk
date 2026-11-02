@@ -174,3 +174,38 @@ export interface GitflowState {
   /** The Git Flow branch that is checked out, if any. */
   current: { kind: GitflowKind; name: string } | null
 }
+
+export interface Remote {
+  name: string
+  /** URL as stored in the repository's config (git's `insteadOf` rewrites are not applied). */
+  fetchUrl: string
+  /** Where pushes go; differs from fetchUrl only when a separate push URL is configured. */
+  pushUrl: string
+}
+
+export interface RemoteState {
+  remotes: Remote[]
+  /** How the profile this repository commits as is connected to a git provider; null when it is not. */
+  connection: ProfileAuth | null
+  /** Name of that profile, to tell the user which one to connect. */
+  profileName: string | null
+}
+
+export type GitProvider = 'github' | 'gitlab' | 'gitea'
+
+/** Create a repository on a git provider, add it as a remote and push the current branch to it. */
+export interface PublishInput {
+  /** Name of the remote to add, e.g. `origin`. */
+  remote: string
+  provider: GitProvider
+  /** Repository name on the provider. */
+  name: string
+  description: string
+  private: boolean
+}
+
+export interface PublishResult {
+  remote: string
+  /** Address of the new repository in a browser. */
+  webUrl: string
+}
