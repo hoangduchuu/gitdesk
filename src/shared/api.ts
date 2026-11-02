@@ -75,6 +75,8 @@ export interface GitDeskApi {
    * the repository's git provider and, when `gravatar` is true, on Gravatar.
    */
   getAvatars(repo: string, hash: string, emails: string[], gravatar: boolean): Async<Record<string, string | null>>
+  /** Like getAvatars for many authors at once (the commit graph), each with one of their commits. */
+  getPeopleAvatars(repo: string, people: Array<{ email: string; hash: string }>, gravatar: boolean): Async<Record<string, string | null>>
   getStashFiles(repo: string, ref: string): Async<StashFile[]>
   getDiff(repo: string, target: DiffTarget): Async<string>
 
@@ -180,6 +182,7 @@ export const REPO_METHODS = [
   'getCommitFiles',
   'getCommitDetails',
   'getAvatars',
+  'getPeopleAvatars',
   'getStashFiles',
   'getDiff',
   'stage',

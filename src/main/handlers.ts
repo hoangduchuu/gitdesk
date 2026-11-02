@@ -62,6 +62,8 @@ const MAX_LOG_LIMIT = 50_000
 const MAX_TERMINAL_SIZE = 1000
 /** A commit has an author and a committer; a few more leaves room for the caller. */
 const MAX_AVATAR_EMAILS = 8
+/** People asked about at once by the commit graph. */
+const MAX_AVATAR_PEOPLE = 24
 /** Pasting more than this at once is refused rather than flooding the shell. */
 const MAX_TERMINAL_INPUT = 1_000_000
 
@@ -90,7 +92,7 @@ export const createHandlers = (
   /** Provider connections of the profiles; without it git runs with the user's own credentials. */
   credentials: Pick<Credentials, 'gitEnv' | 'remove' | 'status' | 'accessFor'> | null = null,
   /** Looks up author pictures; without it none are shown. */
-  avatars: Pick<AvatarService, 'lookup'> | null = null
+  avatars: Pick<AvatarService, 'lookup' | 'lookupPeople'> | null = null
 ): RepoHandlers => {
   /** Remote commands authenticate as the profile the repository commits with. */
   const remoteEnv = async (repo: string): Promise<Record<string, string>> =>
@@ -114,6 +116,26 @@ export const createHandlers = (
       remoteUrl: remote?.fetchUrl ?? null,
       hash: commitHash,
       emails: list,
+      gravatar: useGravatar,
+      access: credentials ? await credentials.accessFor(profile?.id ?? null) : null
+    })
+  },
+  getPeopleAvatars: async (repo, people, gravatar) => {
+    if (!Array.isArray(people) || people.length > MAX_AVATAR_PEOPLE) throw new Error('Invalid people')
+    const list = people.map((person: unknown) => {
+      const entry = person as { email?: unknown; hash?: unknown } | null
+      const email = requireString(entry?.email, 'email')
+      if (email.length > 320) throw new Error('Invalid email')
+      return { email, hash: requireHash(entry?.hash) }
+    })
+    const useGravatar = requireBoolean(gravatar, 'Gravatar flag')
+    if (!avatars) return Object.fromEntries(list.map((person) => [person.email, null]))
+    const remotes = await readRemotes(repo)
+    const remote = remotes.find((candidate) => candidate.name === 'origin') ?? remotes[0]
+    const profile = await profiles.repoProfile(repo)
+    return avatars.lookupPeople({
+      remoteUrl: remote?.fetchUrl ?? null,
+      people: list,
       gravatar: useGravatar,
       access: credentials ? await credentials.accessFor(profile?.id ?? null) : null
     })

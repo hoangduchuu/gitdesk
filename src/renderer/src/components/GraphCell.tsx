@@ -50,7 +50,7 @@ const bottomPath = ({ from, to }: GraphSegment, middle: number): string => {
   return `M${x1} ${middle}H${x2 - dir * CORNER}Q${x2} ${middle} ${x2} ${middle + CORNER}V${ROW_HEIGHT}`
 }
 
-function Node({ node, x, y, color }: { node: GraphNode; x: number; y: number; color: string }) {
+function Node({ node, x, y, color, picture }: { node: GraphNode; x: number; y: number; color: string; picture?: string | null }) {
   if (node.kind === 'wip') {
     return <circle className="node-wip" cx={x} cy={y} r={NODE_RADIUS - 2} stroke={color} />
   }
@@ -61,13 +61,24 @@ function Node({ node, x, y, color }: { node: GraphNode; x: number; y: number; co
   if (node.parents.length > 1) {
     return <circle cx={x} cy={y} r={MERGE_RADIUS} fill={color} />
   }
-  // Avatar framed by the lane colour, like GitKraken's author photos.
+  // Avatar framed by the lane colour, like GitKraken's author photos: the picture when there is one, else initials.
+  const inner = NODE_RADIUS - 1
+  const clip = `avatar-clip-${node.hash}`
   return (
     <g>
       <circle cx={x} cy={y} r={NODE_RADIUS} fill={avatarColor(node.commit.authorEmail)} stroke={color} strokeWidth={2} />
-      <text className="node-initials" x={x} y={y} dy="0.35em" textAnchor="middle">
-        {initials(node.commit.authorName)}
-      </text>
+      {picture ? (
+        <>
+          <clipPath id={clip}>
+            <circle cx={x} cy={y} r={inner} />
+          </clipPath>
+          <image href={picture} x={x - inner} y={y - inner} width={inner * 2} height={inner * 2} preserveAspectRatio="xMidYMid slice" clipPath={`url(#${clip})`} />
+        </>
+      ) : (
+        <text className="node-initials" x={x} y={y} dy="0.35em" textAnchor="middle">
+          {initials(node.commit.authorName)}
+        </text>
+      )}
     </g>
   )
 }
@@ -80,9 +91,11 @@ interface Props {
   lineWidth: number
   /** Colour of a lane in the chosen palette. */
   laneColor: (lane: number) => string
+  /** The author's picture as a `data:` URI, when one has been found. */
+  picture?: string | null
 }
 
-export function GraphCell({ row, lanes, dashed, lineWidth, laneColor }: Props) {
+export function GraphCell({ row, lanes, dashed, lineWidth, laneColor, picture }: Props) {
   const middle = ROW_HEIGHT / 2
   const pseudo = isPseudo(row.node)
   return (
@@ -109,7 +122,7 @@ export function GraphCell({ row, lanes, dashed, lineWidth, laneColor }: Props) {
           }
         />
       ))}
-      <Node node={row.node} x={laneX(row.column)} y={middle} color={laneColor(row.column)} />
+      <Node node={row.node} x={laneX(row.column)} y={middle} color={laneColor(row.column)} picture={picture} />
     </svg>
   )
 }

@@ -343,6 +343,7 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
           {!data && <p className="hint">{t('common.loadingRepository')}</p>}
           {data && center.kind === 'graph' && (
             <CommitGraph
+              repo={path}
               rows={rows}
               selectedHash={selection?.kind === 'wip' ? WIP_HASH : selection?.hash ?? null}
               revealHash={reveal}

@@ -4,6 +4,7 @@ import { ageMarkers } from '../../../shared/format'
 import { groupRefs, type RefLabel } from '../../../shared/refs'
 import type { GraphRow } from '../../../shared/types'
 import { useBranchDnd, type BranchDrop } from '../branchDrag'
+import { useGraphAvatars, type GraphPerson } from '../hooks/useGraphAvatars'
 import { LINE_WIDTH_PX, useSettings } from '../hooks/useSettings'
 import { localeOf, useT, type Translate } from '../i18n'
 import { ChangeIcon } from './ChangeIcon'
@@ -15,6 +16,8 @@ const MIN_GRAPH_LANES = 3
 const MAX_GRAPH_LANES = 16
 
 interface Props {
+  /** The repository, to look up the authors' pictures. */
+  repo: string
   rows: ReadonlyArray<GraphRow<GraphNode>>
   selectedHash: string | null
   /** Scroll this node into view when it changes. */
@@ -28,7 +31,7 @@ interface Props {
 }
 
 /** Virtualised list: only rows near the viewport are rendered, so large histories stay fast. */
-export function CommitGraph({ rows, selectedHash, revealHash, picked, onSelect, onContextMenu, onBranchDrop }: Props) {
+export function CommitGraph({ repo, rows, selectedHash, revealHash, picked, onSelect, onContextMenu, onBranchDrop }: Props) {
   const t = useT()
   const viewport = useRef<HTMLDivElement>(null)
   const [scrollTop, setScrollTop] = useState(0)
@@ -67,6 +70,21 @@ export function CommitGraph({ rows, selectedHash, revealHash, picked, onSelect, 
   const first = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN_ROWS)
   const last = Math.min(rows.length, Math.ceil((scrollTop + height) / ROW_HEIGHT) + OVERSCAN_ROWS)
 
+  // Pictures only for the authors on screen; nearest to the top of the view are asked first.
+  const people = useMemo(() => {
+    const seen = new Set<string>()
+    const list: GraphPerson[] = []
+    for (const row of rows.slice(first, last)) {
+      if (row.node.kind !== 'commit') continue
+      const email = row.node.commit.authorEmail.toLowerCase()
+      if (seen.has(email)) continue
+      seen.add(email)
+      list.push({ email: row.node.commit.authorEmail, hash: row.node.commit.hash })
+    }
+    return list
+  }, [rows, first, last])
+  const pictures = useGraphAvatars(repo, people)
+
   return (
     <div className="graph" style={{ '--graph-width': `${graphWidth}px` } as CSSProperties}>
       <div className="graph-header">
@@ -94,7 +112,14 @@ export function CommitGraph({ rows, selectedHash, revealHash, picked, onSelect, 
                   <RefLabels refs={refs} t={t} onBranchDrop={onBranchDrop} />
                 </div>
                 <div className="col-graph">
-                  <GraphCell row={row} lanes={lanes} dashed={dashed[index]!} lineWidth={lineWidth} laneColor={laneColor} />
+                  <GraphCell
+                    row={row}
+                    lanes={lanes}
+                    dashed={dashed[index]!}
+                    lineWidth={lineWidth}
+                    laneColor={laneColor}
+                    picture={row.node.kind === 'commit' ? pictures[row.node.commit.authorEmail.toLowerCase()] : null}
+                  />
                 </div>
                 <div className="col-message" title={fullMessage(row.node)}>
                   <Message node={row.node} />

@@ -124,6 +124,73 @@ describe('GitHub', () => {
   })
 })
 
+describe('many people (the commit graph)', () => {
+  const commitReply = (email: string, id: number) => (): Response =>
+    json({ author: { avatar_url: `https://avatars.githubusercontent.com/u/${id}` }, commit: { author: { email }, committer: { email } } })
+
+  test('each author is found through their own commit, once, whatever the email case', async () => {
+    const { request, calls } = network({
+      'https://api.github.com/repos/octo/app/commits/aaa1111': commitReply('a@x.com', 1),
+      'https://api.github.com/repos/octo/app/commits/bbb2222': commitReply('b@x.com', 2),
+      'https://avatars.githubusercontent.com/u/': () => image()
+    })
+    const result = await service(request).lookupPeople({
+      remoteUrl: 'https://github.com/octo/app.git',
+      gravatar: false,
+      access: null,
+      people: [
+        { email: 'a@x.com', hash: 'aaa1111' },
+        { email: 'A@X.com', hash: 'aaa9999' }, // the same person again: no second lookup
+        { email: 'b@x.com', hash: 'bbb2222' }
+      ]
+    })
+    expect(result).toEqual({ 'a@x.com': PNG_URI, 'A@X.com': PNG_URI, 'b@x.com': PNG_URI })
+    expect(calls.filter((c) => c.url.startsWith('https://api.github.com')).map((c) => c.url.split('/').pop()).sort()).toEqual(['aaa1111', 'bbb2222'])
+  })
+
+  test('only a few lookups run at the same time', async () => {
+    let running = 0
+    let peak = 0
+    const request = (async (url: string) => {
+      running += 1
+      peak = Math.max(peak, running)
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      running -= 1
+      return String(url).startsWith('https://www.gravatar.com') ? notFound() : json({}, 404)
+    }) as unknown as typeof fetch
+    const people = Array.from({ length: 12 }, (_, i) => ({ email: `p${i}@x.com`, hash: `abc${1000 + i}` }))
+    await service(request).lookupPeople({ remoteUrl: 'https://github.com/octo/app.git', gravatar: true, access: null, people })
+    expect(peak).toBeLessThanOrEqual(3)
+    expect(peak).toBeGreaterThan(1)
+  })
+
+  test('after GitHub says rate limit, no more API calls are made until it resets', async () => {
+    let calls = 0
+    const request = (async () => {
+      calls += 1
+      return new Response('{}', { status: 403, headers: { 'x-ratelimit-reset': String(Math.floor((clock + 20 * 60_000) / 1000)) } })
+    }) as unknown as typeof fetch
+    const svc = service(request)
+    const people = Array.from({ length: 6 }, (_, i) => ({ email: `p${i}@x.com`, hash: `abc${1000 + i}` }))
+    const input = { remoteUrl: 'https://github.com/octo/app.git', gravatar: false, access: null, people }
+    await svc.lookupPeople(input)
+    expect(calls).toBeLessThanOrEqual(3) // the first lookups already in flight; the rest never asked
+    const before = calls
+    clock += 11 * 60_000 // their failed entries have expired, but GitHub's limit has not reset
+    await svc.lookupPeople(input)
+    expect(calls).toBe(before)
+    clock += 10 * 60_000 // past the reset
+    await svc.lookupPeople(input)
+    expect(calls).toBeGreaterThan(before)
+  })
+
+  test('an empty list asks nothing', async () => {
+    const net = network({})
+    expect(await service(net.request).lookupPeople({ remoteUrl: null, gravatar: true, access: null, people: [] })).toEqual({})
+    expect(net.calls).toEqual([])
+  })
+})
+
 describe('GitLab and Gravatar', () => {
   test('a GitLab server is asked for the avatar by email', async () => {
     const net = network({

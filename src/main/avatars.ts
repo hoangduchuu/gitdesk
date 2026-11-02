@@ -12,6 +12,11 @@ const MAX_BYTES = 512 * 1024
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
 const TIMEOUT_MS = 10_000
 const SIZE = 96
+/** How many people are looked up at once. */
+const CONCURRENCY = 3
+/** After GitHub refuses for rate limiting, leave it alone for this long (at most an hour). */
+const RATE_LIMIT_PAUSE = 10 * 60_000
+const MAX_PAUSE = 60 * 60_000
 const NOREPLY = /^(?:(\d+)\+)?([A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)@users\.noreply\.github\.com$/i
 
 interface Entry {
@@ -33,6 +38,12 @@ export interface AvatarLookup {
   access: ProviderAccess | null
 }
 
+/** A person to find a picture for, with one of their commits (GitHub links its accounts to commits). */
+export interface AvatarPerson {
+  email: string
+  hash: string
+}
+
 export interface AvatarOptions {
   /** Folder for the cache; keys are hashed, so no email is written to disk. */
   dir: string
@@ -52,6 +63,8 @@ export class AvatarService {
   private readonly memory = new Map<string, Entry>()
   private readonly request: typeof globalThis.fetch
   private readonly now: () => number
+  /** No GitHub API calls before this time: it said we asked too much. */
+  private githubPausedUntil = 0
 
   constructor(private readonly options: AvatarOptions) {
     this.request = options.fetch ?? globalThis.fetch
@@ -90,6 +103,29 @@ export class AvatarService {
     return Object.fromEntries(input.emails.map((email) => [email, found.get(email.trim().toLowerCase()) ?? null]))
   }
 
+  /**
+   * Pictures for many people, each found through their own commit, a few at a time. People are
+   * deduplicated by email, so someone with a hundred commits costs one lookup, and later ones are cached.
+   */
+  async lookupPeople(input: Omit<AvatarLookup, 'hash' | 'emails'> & { people: AvatarPerson[] }): Promise<Record<string, string | null>> {
+    const queue = new Map<string, AvatarPerson>()
+    for (const person of input.people) {
+      const key = person.email.trim().toLowerCase()
+      if (key !== '' && !queue.has(key)) queue.set(key, person)
+    }
+    const found = new Map<string, string | null>()
+    const waiting = [...queue.entries()]
+    const worker = async (): Promise<void> => {
+      for (let next = waiting.shift(); next; next = waiting.shift()) {
+        const [key, person] = next
+        const result = await this.lookup({ ...input, hash: person.hash, emails: [person.email] })
+        found.set(key, result[person.email] ?? null)
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, waiting.length) }, worker))
+    return Object.fromEntries(input.people.map((person) => [person.email, found.get(person.email.trim().toLowerCase()) ?? null]))
+  }
+
   /** One call to GitHub tells who the author and the committer of this commit are, if they have accounts. */
   private async githubAccounts(remote: RemoteAddress, input: AvatarLookup, emails: string[], found: Map<string, string>): Promise<void> {
     const todo: string[] = []
@@ -118,6 +154,7 @@ export class AvatarService {
 
   /** Lowercased email -> avatar URL for the people GitHub links to the commit. Null when the lookup itself failed. */
   private async githubCommitAvatars(remote: RemoteAddress, input: AvatarLookup): Promise<Map<string, string> | null> {
+    if (this.now() < this.githubPausedUntil) return null
     const token = input.access?.host === 'github.com' ? input.access.token : null
     const response = await this.request(`https://api.github.com/repos/${encodeURIComponent(remote.owner)}/${encodeURIComponent(remote.repo)}/commits/${encodeURIComponent(input.hash)}`, {
       headers: {
@@ -129,7 +166,14 @@ export class AvatarService {
       redirect: 'error',
       signal: AbortSignal.timeout(TIMEOUT_MS)
     })
-    if (!response.ok) return null // private repository without access, not pushed yet, rate limited...
+    if (response.status === 403 || response.status === 429) {
+      // Rate limited (or no access): stop asking until the limit resets, however many people are waiting.
+      const reset = Number(response.headers.get('x-ratelimit-reset')) * 1000
+      const wait = Number.isFinite(reset) && reset > this.now() ? reset - this.now() : RATE_LIMIT_PAUSE
+      this.githubPausedUntil = this.now() + Math.min(wait, MAX_PAUSE)
+      return null
+    }
+    if (!response.ok) return null // private repository without access, not pushed yet...
     const body = (await response.json()) as {
       author?: { avatar_url?: unknown } | null
       committer?: { avatar_url?: unknown } | null
