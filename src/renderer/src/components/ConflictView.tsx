@@ -19,10 +19,13 @@ interface Props {
   repo: string
   path: string
   controller: RepositoryController
+  /** Other files still in conflict, in list order. */
+  others: readonly string[]
+  onOpenNext: (path: string) => void
   onClose: () => void
 }
 
-export function ConflictView({ repo, path, controller, onClose }: Props) {
+export function ConflictView({ repo, path, controller, others, onOpenNext, onClose }: Props) {
   const t = useT()
   const tCount = useTCount()
   const [state, setState] = useState<State>({ kind: 'loading' })
@@ -42,7 +45,14 @@ export function ConflictView({ repo, path, controller, onClose }: Props) {
 
   const finish = async (resolve: () => ReturnType<ReturnType<typeof api>['resolveConflict']>): Promise<void> => {
     const result = await controller.run(t('conflict.resolving'), resolve)
-    if (result.ok) onClose()
+    if (!result.ok) return
+    const next = others[0]
+    if (next !== undefined) {
+      onOpenNext(next)
+    } else {
+      controller.setNotice(t('conflict.allResolved'))
+      onClose()
+    }
   }
   const takeSide = (side: ConflictSide): Promise<void> =>
     finish(() => api().resolveConflictWithSide(repo, path, side))
@@ -51,7 +61,10 @@ export function ConflictView({ repo, path, controller, onClose }: Props) {
   return (
     <section className="conflict-view">
       <header className="view-header">
-        <span className="view-title">{t('conflict.title', { path })}</span>
+        <span className="view-title">
+          {t('conflict.title', { path })}
+          {others.length > 0 && <span className="muted"> · {tCount('conflict.moreFiles', others.length)}</span>}
+        </span>
         <span className="heading-actions">
           <button type="button" className="ghost" onClick={() => void takeSide('ours')}>
             <Icon name="commit" size={14} />{t('conflict.takeCurrentFile')}
@@ -89,6 +102,7 @@ function ConflictEditor({ detail, onSave, t, tCount }: { detail: ConflictDetail;
   const [edited, setEdited] = useState(false)
 
   const built = buildResolution(segments, choices)
+  const resolvedCount = choices.filter((choice) => choice !== null).length
   // Follow the choices until the user edits the result by hand.
   useEffect(() => {
     if (!edited && built !== null) setResult(built)
@@ -120,6 +134,22 @@ function ConflictEditor({ detail, onSave, t, tCount }: { detail: ConflictDetail;
   return (
     <div className="conflict-body">
       <div className="conflict-blocks">
+        {blocks.length > 0 && (
+          <div className="conflict-progress" role="status">
+            <span>{t('conflict.progress', { done: resolvedCount, total: blocks.length })}</span>
+            <button
+              type="button"
+              className="ghost"
+              disabled={resolvedCount === blocks.length}
+              onClick={() => {
+                const next = choices.findIndex((choice) => choice === null)
+                document.getElementById(`conflict-block-${next}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+              }}
+            >
+              {t('conflict.nextUnresolved')}
+            </button>
+          </div>
+        )}
         {blocks.length > 1 && (
           <div className="conflict-all">
             <span className="muted">{tCount('conflict.allCount', blocks.length)}</span>
@@ -134,7 +164,7 @@ function ConflictEditor({ detail, onSave, t, tCount }: { detail: ConflictDetail;
         )}
         {blocks.length === 0 && <p className="hint">{t('conflict.noMarkers')}</p>}
         {blocks.map((block) => (
-          <div key={block.index} className="conflict-block">
+          <div key={block.index} id={`conflict-block-${block.index}`} className={`conflict-block${choices[block.index] ? ' is-resolved' : ''}`}>
             <div className="conflict-block-title">
               {t('conflict.count', { current: block.index + 1, total: blocks.length })}
             </div>
@@ -148,6 +178,12 @@ function ConflictEditor({ detail, onSave, t, tCount }: { detail: ConflictDetail;
                 <pre>{block.theirs || t('conflict.empty')}</pre>
               </div>
             </div>
+            {block.base !== null && (
+              <details className="conflict-base">
+                <summary>{t('conflict.base')}</summary>
+                <pre>{block.base || t('conflict.empty')}</pre>
+              </details>
+            )}
             <div className="button-row">
               {CHOICES.map(([choice, label, icon]) => (
                 <button

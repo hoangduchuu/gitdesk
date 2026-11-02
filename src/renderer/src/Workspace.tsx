@@ -406,7 +406,15 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
             />
           )}
           {center.kind === 'conflict' && (
-            <ConflictView key={center.path} repo={path} path={center.path} controller={controller} onClose={closeCenter} />
+            <ConflictView
+              key={center.path}
+              repo={path}
+              path={center.path}
+              controller={controller}
+              others={(status?.conflicted ?? []).map((file) => file.path).filter((file) => file !== center.path)}
+              onOpenNext={(file) => setCenter({ kind: 'conflict', path: file })}
+              onClose={closeCenter}
+            />
           )}
           {center.kind === 'rebase' && (
             <RebaseView

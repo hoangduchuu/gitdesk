@@ -2511,3 +2511,9 @@ img.avatar {
 .diff-split .diff-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 .diff-split td.diff-empty { background: color-mix(in srgb, var(--border) 25%, transparent); }
 .diff-split tr > td:nth-child(2) { border-right: 1px solid var(--border); }
+
+.conflict-progress { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-weight: 600; }
+.conflict-block.is-resolved { opacity: 0.75; }
+.conflict-base { margin: 6px 0; font-size: 12px; }
+.conflict-base summary { cursor: pointer; color: var(--text-dim); }
+.conflict-base pre { margin: 4px 0 0; padding: 6px 8px; background: var(--bg-raised); border: 1px solid var(--border); overflow: auto; }
