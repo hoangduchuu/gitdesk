@@ -25,7 +25,8 @@ import { interactiveRebase, readRebaseCommits } from './git/rebase'
 import { finishGitflow, initGitflow, readGitflow, startGitflow } from './git/gitflow'
 import { createTag, deleteRemoteTag, deleteTag, pushTag, readTags } from './git/tags'
 import { readLog } from './git/log'
-import { fetch, pull, push } from './git/remote'
+import { addRemote, fetch, pull, push, readRemotes, removeRemote, setRemoteUrl } from './git/remote'
+import { publishRepository } from './publish'
 import { readStashes, requireStashRef, stashApply, stashDrop, stashPop, stashPush } from './git/stash'
 import { readStatus } from './git/status'
 import { commit, discard, gitIdentity, stage, unstage } from './git/worktree'
@@ -43,6 +44,7 @@ import {
   requireHashes,
   requireNullableString,
   requireProfileInput,
+  requirePublishInput,
   requireRebaseSteps,
   requireResetMode,
   requireSelectionRequest,
@@ -82,7 +84,7 @@ export const createHandlers = (
   profiles: ProfileStore,
   terminals: TerminalManager,
   /** Provider connections of the profiles; without it git runs with the user's own credentials. */
-  credentials: Pick<Credentials, 'gitEnv' | 'remove'> | null = null
+  credentials: Pick<Credentials, 'gitEnv' | 'remove' | 'status' | 'accessFor'> | null = null
 ): RepoHandlers => {
   /** Remote commands authenticate as the profile the repository commits with. */
   const remoteEnv = async (repo: string): Promise<Record<string, string>> =>
@@ -126,6 +128,24 @@ export const createHandlers = (
   rebaseBranch: async (repo, branch, onto) =>
     rebaseBranch(repo, requireString(branch, 'branch name'), requireString(onto, 'branch name')),
   mergeBranch: async (repo, name) => mergeBranch(repo, requireString(name, 'branch name')),
+
+  getRemotes: async (repo) => {
+    const [remotes, profile] = await Promise.all([readRemotes(repo), profiles.repoProfile(repo)])
+    const connection = profile && credentials ? ((await credentials.status()).byProfile[profile.id] ?? null) : null
+    return { remotes, connection, profileName: profile?.name ?? null }
+  },
+  addRemote: async (repo, name, url) => done(addRemote(repo, requireString(name, 'remote name').trim(), requireString(url, 'remote URL'))),
+  setRemoteUrl: async (repo, name, url) => done(setRemoteUrl(repo, requireString(name, 'remote name'), requireString(url, 'remote URL'))),
+  removeRemote: async (repo, name) => done(removeRemote(repo, requireString(name, 'remote name'))),
+  publishRepository: async (repo, input) => {
+    const request = requirePublishInput(input)
+    const profile = await profiles.repoProfile(repo)
+    const access = credentials ? await credentials.accessFor(profile?.id ?? null) : null
+    if (access === null) {
+      throw new Error('Connect the profile this repository commits as to GitHub or a git server first (Profiles), then choose it under "Commit as".')
+    }
+    return publishRepository(repo, request, access, await remoteEnv(repo))
+  },
 
   fetch: async (repo) => done(fetch(repo, { env: await remoteEnv(repo) })),
   pull: async (repo) => pull(repo, { env: await remoteEnv(repo) }),

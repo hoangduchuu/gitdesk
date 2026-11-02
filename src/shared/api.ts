@@ -15,6 +15,9 @@ import type {
   ProfileAuthState,
   ProfileInput,
   ProfileState,
+  PublishInput,
+  PublishResult,
+  RemoteState,
   RebaseStep,
   Stash,
   StashFile,
@@ -80,6 +83,14 @@ export interface GitDeskApi {
   mergeBranchInto(repo: string, source: string, target: string): Async<MergeOutcome>
   /** Drag and drop: rebase the local branch `branch` onto `onto`. */
   rebaseBranch(repo: string, branch: string, onto: string): Async<MergeOutcome>
+
+  getRemotes(repo: string): Async<RemoteState>
+  addRemote(repo: string, name: string, url: string): Async<null>
+  setRemoteUrl(repo: string, name: string, url: string): Async<null>
+  /** Forget a remote and its remote-tracking branches here; nothing changes on the server. */
+  removeRemote(repo: string, name: string): Async<null>
+  /** Create a repository on the profile's git provider, add it as a remote and push the current branch. */
+  publishRepository(repo: string, input: PublishInput): Async<PublishResult>
 
   fetch(repo: string): Async<null>
   pull(repo: string): Async<MergeOutcome>
@@ -168,6 +179,11 @@ export const REPO_METHODS = [
   'mergeBranch',
   'mergeBranchInto',
   'rebaseBranch',
+  'getRemotes',
+  'addRemote',
+  'setRemoteUrl',
+  'removeRemote',
+  'publishRepository',
   'fetch',
   'pull',
   'push',

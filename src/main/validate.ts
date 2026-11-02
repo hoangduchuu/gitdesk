@@ -7,7 +7,9 @@ import type {
   FileChange,
   GitflowConfig,
   GitflowKind,
+  GitProvider,
   ProfileInput,
+  PublishInput,
   RebaseAction,
   RebaseStep
 } from '../shared/model'
@@ -183,5 +185,19 @@ export const requireGitflowConfig = (value: unknown): GitflowConfig => {
     release: field('release').trim(),
     hotfix: field('hotfix').trim(),
     versionTag: field('versionTag').trim()
+  }
+}
+
+export const requirePublishInput = (value: unknown): PublishInput => {
+  const input = value as Record<string, unknown> | null
+  if (!input || typeof input !== 'object') return fail('publish request')
+  const provider = input['provider']
+  if (provider !== 'github' && provider !== 'gitlab' && provider !== 'gitea') return fail('git provider')
+  return {
+    remote: requireString(input['remote'], 'remote name').trim(),
+    provider: provider satisfies GitProvider,
+    name: requireString(input['name'], 'repository name').trim(),
+    description: requireString(input['description'], 'description').trim(),
+    private: requireBoolean(input['private'], 'visibility')
   }
 }

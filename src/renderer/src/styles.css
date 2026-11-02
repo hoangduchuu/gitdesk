@@ -2229,3 +2229,40 @@ button.recent-repo:hover {
   outline-offset: 1px;
   background: var(--bg-selected);
 }
+
+.sidebar-add {
+  margin-left: auto;
+  padding: 0 4px;
+  background: none;
+  border: 0;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.sidebar-add:hover {
+  color: var(--text);
+}
+
+.count.remote-url {
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+
+.publish-hint {
+  margin: -4px 0 0 24px;
+  font-size: 12px;
+}
+
+.profile-form label.checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+
+.profile-form label.checkbox input {
+  margin: 0;
+}

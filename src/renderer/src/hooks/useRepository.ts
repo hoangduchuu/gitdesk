@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Branch, Stash, Tag, WorkingTreeStatus } from '../../../shared/model'
+import type { Branch, RemoteState, Stash, Tag, WorkingTreeStatus } from '../../../shared/model'
 import type { Commit, RepoInfo, Result } from '../../../shared/types'
 import { api, errorMessage, unwrap } from '../api'
 
@@ -11,6 +11,7 @@ export interface RepoData {
   branches: Branch[]
   stashes: Stash[]
   tags: Tag[]
+  remotes: RemoteState
 }
 
 /**
@@ -27,14 +28,15 @@ export function useRepository(repo: RepoInfo | null, active = true) {
     if (!repo) return
     try {
       const gitdesk = api()
-      const [commits, status, branches, stashes, tags] = await Promise.all([
+      const [commits, status, branches, stashes, tags, remotes] = await Promise.all([
         gitdesk.getLog(repo.path, LOG_LIMIT).then(unwrap),
         gitdesk.getStatus(repo.path).then(unwrap),
         gitdesk.getBranches(repo.path).then(unwrap),
         gitdesk.getStashes(repo.path).then(unwrap),
-        gitdesk.getTags(repo.path).then(unwrap)
+        gitdesk.getTags(repo.path).then(unwrap),
+        gitdesk.getRemotes(repo.path).then(unwrap)
       ])
-      setData({ commits, status, branches, stashes, tags })
+      setData({ commits, status, branches, stashes, tags, remotes })
     } catch (failure) {
       setError(errorMessage(failure))
     }

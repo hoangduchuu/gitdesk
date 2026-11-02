@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react'
 import { layoutGraph } from '../../shared/graph'
 import { buildGraphNodes, WIP_HASH, type GraphNode } from '../../shared/graph-nodes'
-import type { Branch, DiffTarget, GitflowConfig, GitflowState } from '../../shared/model'
+import type { Branch, DiffTarget, GitflowConfig, GitflowState, PublishInput } from '../../shared/model'
 import type { RepoInfo } from '../../shared/types'
 import { createActions } from './actions'
 import { api } from './api'
@@ -15,6 +15,7 @@ import { action, ContextMenu, heading, separator, type MenuItem, type MenuReques
 import { DiffView, type StagingOptions } from './components/DiffView'
 import { GitflowInitDialog } from './components/GitflowInitDialog'
 import { OperationBanner } from './components/OperationBanner'
+import { PublishDialog } from './components/PublishDialog'
 import { ProfilesDialog } from './components/ProfilesDialog'
 import { PromptDialog, type PromptRequest } from './components/PromptDialog'
 import { RebaseView } from './components/RebaseView'
@@ -57,6 +58,7 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
   const [menu, setMenu] = useState<MenuRequest | null>(null)
   const [profilesOpen, setProfilesOpen] = useState(false)
   const [gitflowInit, setGitflowInit] = useState<GitflowState | null>(null)
+  const [publishOpen, setPublishOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   /** Bumped when the profiles dialog closes, so pickers reload. */
   const [profileVersion, setProfileVersion] = useState(0)
@@ -188,6 +190,27 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
     })
   }
 
+  /** Pushing a repository that has no remote publishes it instead. */
+  const push = (): void => {
+    if (data && data.remotes.remotes.length === 0) setPublishOpen(true)
+    else void run(t('app.pushing'), () => gitdesk.push(path))
+  }
+
+  const publishNew = (input: PublishInput): void => {
+    setPublishOpen(false)
+    void run(t('publish.publishing'), () => gitdesk.publishRepository(path, input)).then((result) => {
+      if (result.ok) setNotice(t('publish.done', { url: result.data.webUrl }))
+    })
+  }
+
+  const publishToUrl = (remote: string, url: string): void => {
+    setPublishOpen(false)
+    void run(t('publish.publishing'), async () => {
+      const added = await gitdesk.addRemote(path, remote, url)
+      return added.ok ? gitdesk.push(path) : added
+    })
+  }
+
   const saveGitflow = (config: GitflowConfig): void => {
     setGitflowInit(null)
     void run(t('gitflow.initializing'), () => gitdesk.initGitflow(path, config))
@@ -250,7 +273,7 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
         onBranchMenu={data ? branchMenu : undefined}
         onFetch={() => void run(t('app.fetching'), () => gitdesk.fetch(path))}
         onPull={() => void run(t('app.pulling'), () => gitdesk.pull(path)).then(actions.reportMerge)}
-        onPush={() => void run(t('app.pushing'), () => gitdesk.push(path))}
+        onPush={push}
         onBranch={() => actions.promptCreateBranch(null)}
         onGitflow={gitflowMenu}
         onStash={actions.promptStash}
@@ -283,6 +306,7 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
             branches={data.branches}
             stashes={data.stashes}
             tags={data.tags}
+            remotes={data.remotes.remotes}
             selectedStash={selectedStash?.ref ?? null}
             onSelectBranch={(branch) => revealCommit(branch.hash)}
             onSelectTag={(tag) => revealCommit(tag.hash)}
@@ -295,6 +319,9 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
             onTagMenu={(tag, event) => openMenu(actions.tagMenu(tag), event)}
             onStashMenu={(stash, event) => openMenu(actions.stashMenu(stash), event)}
             onBranchDrop={branchDrop}
+            onRemoteMenu={(remote, event) => openMenu(actions.remoteMenu(remote), event)}
+            onAddRemote={actions.promptAddRemote}
+            onPublish={() => setPublishOpen(true)}
           />
         ) : (
           <nav className="sidebar" />
@@ -385,6 +412,15 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
       {prompt && <PromptDialog request={prompt} onClose={() => setPrompt(null)} />}
       {choice && <ChoiceDialog request={choice} onClose={() => setChoice(null)} />}
       {menu && <ContextMenu request={menu} onClose={closeMenu} />}
+      {publishOpen && data && (
+        <PublishDialog
+          defaultName={repo.name}
+          state={data.remotes}
+          onCreate={publishNew}
+          onUseUrl={publishToUrl}
+          onClose={() => setPublishOpen(false)}
+        />
+      )}
       {gitflowInit && <GitflowInitDialog state={gitflowInit} onSubmit={saveGitflow} onClose={() => setGitflowInit(null)} />}
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
       {profilesOpen && (
