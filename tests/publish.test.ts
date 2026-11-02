@@ -17,7 +17,7 @@ interface Call {
 const recorder = (...replies: Response[]): { request: typeof fetch; calls: Call[] } => {
   const calls: Call[] = []
   const request = (async (url: string, init: RequestInit) => {
-    calls.push({ url, headers: init.headers as Record<string, string>, body: JSON.parse(String(init.body)) })
+    calls.push({ url, headers: init.headers as Record<string, string>, body: init.body ? JSON.parse(String(init.body)) : {} })
     const reply = replies.shift()
     if (!reply) throw new Error('unexpected request')
     return reply
@@ -48,6 +48,22 @@ describe('creating a repository on a provider', () => {
     expect(calls[0]!.url).toBe('https://gitlab.example.com:8443/api/v4/projects')
     expect(calls[0]!.headers['PRIVATE-TOKEN']).toBe('glpat-1')
     expect(calls[0]!.body).toMatchObject({ name: 'my-app', path: 'my-app', visibility: 'public' })
+  })
+
+  test('Bitbucket: finds the owned workspace, then creates the repository with basic auth', async () => {
+    const access = { host: 'bitbucket.org', username: 'me@x.io', token: 'tok' }
+    const { request, calls } = recorder(
+      json({ values: [{ administrator: false, workspace: { slug: 'other' } }, { administrator: true, workspace: { slug: 'myws' } }] }),
+      json({ full_name: 'myws/my-app', links: { clone: [{ name: 'https', href: 'https://me@bitbucket.org/myws/my-app.git' }] } }, 200)
+    )
+    expect(await createProviderRepo(access, { provider: 'bitbucket', ...NEW }, request)).toEqual({
+      cloneUrl: 'https://bitbucket.org/myws/my-app.git',
+      webUrl: 'https://bitbucket.org/myws/my-app'
+    })
+    expect(calls[0]!.url).toContain('/2.0/user/workspaces')
+    expect(calls[1]!.url).toBe('https://api.bitbucket.org/2.0/repositories/myws/my-app')
+    expect(calls[1]!.headers['Authorization']).toBe(`Basic ${Buffer.from('me@x.io:tok').toString('base64')}`)
+    expect(calls[1]!.body).toEqual({ scm: 'git', is_private: true, description: 'A thing' })
   })
 
   test('Gitea: user/repos with a token header', async () => {

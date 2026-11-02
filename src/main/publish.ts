@@ -42,14 +42,15 @@ async function send(
   label: string,
   url: string,
   headers: Record<string, string>,
-  body: unknown
+  body: unknown,
+  method: 'POST' | 'GET' | 'PUT' = 'POST'
 ): Promise<Record<string, unknown>> {
   let response: Response
   try {
     response = await request(url, {
-      method: 'POST',
+      method,
       headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'User-Agent': 'GitDesk', ...headers },
-      body: JSON.stringify(body),
+      body: method === 'GET' ? undefined : JSON.stringify(body),
       redirect: 'error', // never forward the token to another address
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
     })
@@ -102,6 +103,27 @@ export async function createProviderRepo(
         { name, path: name, description, visibility: input.private ? 'private' : 'public' }
       )
       return made(body, 'http_url_to_repo', 'web_url')
+    }
+    case 'bitbucket': {
+      if (access.host !== 'bitbucket.org') throw new Error('This profile is not connected to bitbucket.org')
+      const headers = { Authorization: `Basic ${Buffer.from(`${access.username}:${access.token}`).toString('base64')}` }
+      // Bitbucket repositories live in a workspace; use the first one this account administers, else the first.
+      const workspaces = await send(request, 'Bitbucket', 'https://api.bitbucket.org/2.0/user/workspaces?pagelen=50', headers, undefined, 'GET')
+      const entries = (Array.isArray(workspaces['values']) ? workspaces['values'] : []) as Array<Record<string, unknown>>
+      const pick = entries.find((entry) => entry['administrator'] === true) ?? entries[0]
+      const workspace = asText((pick?.['workspace'] as Record<string, unknown> | undefined)?.['slug'])
+      if (workspace === null) throw new Error('Bitbucket: no workspace found for this account (the API token needs the read:workspace:bitbucket scope)')
+      const body = await send(
+        request,
+        'Bitbucket',
+        `https://api.bitbucket.org/2.0/repositories/${workspace}/${name.toLowerCase()}`,
+        headers,
+        { scm: 'git', is_private: input.private, description }
+      )
+      // The reply's clone link embeds the username; build the plain address instead.
+      const fullName = asText(body['full_name'])
+      if (fullName === null) throw new Error('The provider did not return the new repository address')
+      return { cloneUrl: `https://bitbucket.org/${fullName}.git`, webUrl: `https://bitbucket.org/${fullName}` }
     }
     case 'gitea': {
       const body = await send(

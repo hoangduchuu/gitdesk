@@ -16,6 +16,7 @@ interface Props {
 const PROVIDERS: ReadonlyArray<[GitProvider, MessageKey]> = [
   ['github', 'publish.provider.github'],
   ['gitlab', 'publish.provider.gitlab'],
+  ['bitbucket', 'publish.provider.bitbucket'],
   ['gitea', 'publish.provider.gitea']
 ]
 

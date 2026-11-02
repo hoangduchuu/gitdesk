@@ -8,6 +8,7 @@ export const guessProvider = (connection: ProfileAuth): GitProvider => {
   if (connection.kind === 'github') return 'github'
   const host = connection.host.toLowerCase()
   if (host === 'github.com') return 'github'
+  if (host === 'bitbucket.org') return 'bitbucket'
   return host.includes('gitlab') ? 'gitlab' : 'gitea'
 }
 

@@ -27,6 +27,7 @@ import type {
   WorkingTreeStatus
 } from './model'
 import type { Commit, RepoInfo, Result } from './types'
+import type { FileSides } from './viewers'
 
 type Async<T> = Promise<Result<T>>
 
@@ -79,6 +80,7 @@ export interface GitDeskApi {
   getPeopleAvatars(repo: string, people: Array<{ email: string; hash: string }>, gravatar: boolean): Async<Record<string, string | null>>
   getStashFiles(repo: string, ref: string): Async<StashFile[]>
   getDiff(repo: string, target: DiffTarget): Async<string>
+  getFileSides(repo: string, target: DiffTarget): Async<FileSides>
 
   stage(repo: string, paths: string[]): Async<null>
   unstage(repo: string, paths: string[]): Async<null>
@@ -185,6 +187,7 @@ export const REPO_METHODS = [
   'getPeopleAvatars',
   'getStashFiles',
   'getDiff',
+  'getFileSides',
   'stage',
   'unstage',
   'discard',

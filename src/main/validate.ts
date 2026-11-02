@@ -192,7 +192,7 @@ export const requirePublishInput = (value: unknown): PublishInput => {
   const input = value as Record<string, unknown> | null
   if (!input || typeof input !== 'object') return fail('publish request')
   const provider = input['provider']
-  if (provider !== 'github' && provider !== 'gitlab' && provider !== 'gitea') return fail('git provider')
+  if (provider !== 'github' && provider !== 'gitlab' && provider !== 'gitea' && provider !== 'bitbucket') return fail('git provider')
   return {
     remote: requireString(input['remote'], 'remote name').trim(),
     provider: provider satisfies GitProvider,

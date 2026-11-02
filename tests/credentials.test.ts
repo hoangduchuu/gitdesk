@@ -132,6 +132,32 @@ describe('Credentials', () => {
     await expect(auth.setToken('p', host, user, token)).rejects.toThrow(message)
   })
 
+  test('gitlab.com and bitbucket.org tokens are checked; a 401 is refused, other outcomes are not', async () => {
+    const rejected = make([json({}, 401)])
+    await expect(rejected.auth.setToken('p', 'gitlab.com', 'me', 'bad')).rejects.toThrow(/GitLab rejected/)
+    expect(rejected.calls).toEqual(['GET https://gitlab.com/api/v4/user '])
+    expect((await rejected.auth.status()).byProfile).toEqual({})
+
+    const bitbucket = make([json({}, 401)])
+    await expect(bitbucket.auth.setToken('p', 'bitbucket.org', 'a@b.c', 'bad')).rejects.toThrow(/Bitbucket rejected/)
+
+    const noScope = make([json({}, 403)])
+    expect(await noScope.auth.setToken('p', 'bitbucket.org', 'a@b.c', 'ok')).toEqual({ kind: 'token', host: 'bitbucket.org', username: 'a@b.c' })
+
+    const offline = make([new Error('offline')])
+    expect((await offline.auth.setToken('p', 'gitlab.com', 'oauth2', 'ok')).kind).toBe('token')
+
+    const own = make([])
+    await own.auth.setToken('p', 'git.example.com', 'me', 'ok') // No request for other servers.
+  })
+
+  test('git over HTTPS to bitbucket.org uses the fixed API-token username, not the email', async () => {
+    const { auth } = make([json({}, 200)])
+    await auth.setToken('p', 'bitbucket.org', 'me@x.io', 'tok')
+    expect(basicOf(await auth.gitEnv('p'))).toBe('x-bitbucket-api-token-auth:tok')
+    expect((await auth.accessFor('p'))?.username).toBe('me@x.io') // the REST API still takes the email
+  })
+
   test.each([
     ['expired_token', /expired/],
     ['access_denied', /denied/]

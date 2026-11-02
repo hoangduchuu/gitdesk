@@ -18,7 +18,7 @@ import {
   resolveConflict,
   resolveConflictWithSide
 } from './git/conflict'
-import { readCommitFiles, readDiff, readStashFiles } from './git/diff'
+import { readCommitFiles, readDiff, readFileSides, readStashFiles } from './git/diff'
 import { checkoutCommit, cherryPick, resetTo, revertCommit } from './git/history'
 import { applySelection } from './git/partial'
 import { interactiveRebase, readRebaseCommits } from './git/rebase'
@@ -146,6 +146,11 @@ export const createHandlers = (
     const checked = requireDiffTarget(repo, target)
     if (checked.kind === 'stash') requireStashRef(checked.ref)
     return readDiff(repo, checked)
+  },
+  getFileSides: async (repo, target) => {
+    const checked = requireDiffTarget(repo, target)
+    if (checked.kind === 'stash') requireStashRef(checked.ref)
+    return readFileSides(repo, checked)
   },
 
   stage: async (repo, paths) => done(stage(repo, requirePaths(repo, paths))),

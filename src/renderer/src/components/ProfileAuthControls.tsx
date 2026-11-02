@@ -12,6 +12,24 @@ interface Props {
 }
 
 type Mode = 'idle' | 'github' | 'token'
+type Preset = 'gitlab' | 'bitbucket' | 'other'
+
+/** Where each provider's sign-in page is, so the user only has to copy the token back. */
+const PRESETS: Record<Preset, { host: string; tokenUrl: (host: string) => string | null; defaultUser: string }> = {
+  gitlab: {
+    host: 'gitlab.com',
+    // GitLab pre-fills the name and scopes from the query string.
+    tokenUrl: (host) =>
+      `https://${host}/-/user_settings/personal_access_tokens?name=GitDesk&scopes=api,read_repository,write_repository`,
+    defaultUser: 'oauth2' // Any username works with a GitLab personal access token.
+  },
+  bitbucket: {
+    host: 'bitbucket.org',
+    tokenUrl: () => 'https://id.atlassian.com/manage-profile/security/api-tokens',
+    defaultUser: ''
+  },
+  other: { host: '', tokenUrl: () => null, defaultUser: '' }
+}
 
 /** Connect one profile to GitHub (browser sign-in) or to any git server with an access token. */
 export function ProfileAuthControls({ profileId, auth, githubConfigured, onChanged }: Props) {
@@ -19,6 +37,7 @@ export function ProfileAuthControls({ profileId, auth, githubConfigured, onChang
   const [mode, setMode] = useState<Mode>('idle')
   const [login, setLogin] = useState<GithubDeviceLogin | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [preset, setPreset] = useState<Preset>('other')
   const [host, setHost] = useState('')
   const [username, setUsername] = useState('')
   const [token, setToken] = useState('')
@@ -51,12 +70,27 @@ export function ProfileAuthControls({ profileId, auth, githubConfigured, onChang
 
   const saveToken = async (event: FormEvent): Promise<void> => {
     event.preventDefault()
-    const result = await api().setProfileToken(profileId, host, username, token)
+    const user = username.trim() === '' ? PRESETS[preset].defaultUser : username
+    const result = await api().setProfileToken(profileId, host, user, token)
     if (!result.ok) return setError(result.error)
     setToken('')
     setError(null)
     setMode('idle')
     onChanged()
+  }
+
+  const startToken = (next: Preset): void => {
+    setPreset(next)
+    setHost(PRESETS[next].host)
+    setUsername('')
+    setToken('')
+    setError(null)
+    setMode('token')
+  }
+
+  const openTokenPage = (): void => {
+    const url = PRESETS[preset].tokenUrl(host.trim().toLowerCase())
+    if (url !== null) window.open(url)
   }
 
   const disconnect = async (): Promise<void> => {
@@ -85,7 +119,13 @@ export function ProfileAuthControls({ profileId, auth, githubConfigured, onChang
           <button type="button" className="link" disabled={!githubConfigured} title={githubConfigured ? '' : t('auth.githubNotConfigured')} onClick={() => void signInWithGithub()}>
             {t('auth.signInGithub')}
           </button>
-          <button type="button" className="link" onClick={() => setMode('token')}>
+          <button type="button" className="link" onClick={() => startToken('gitlab')}>
+            {t('auth.signInGitlab')}
+          </button>
+          <button type="button" className="link" onClick={() => startToken('bitbucket')}>
+            {t('auth.signInBitbucket')}
+          </button>
+          <button type="button" className="link" onClick={() => startToken('other')}>
             {t('auth.useToken')}
           </button>
         </>
@@ -108,10 +148,17 @@ export function ProfileAuthControls({ profileId, auth, githubConfigured, onChang
       )}
       {mode === 'token' && (
         <form onSubmit={(event) => void saveToken(event)}>
-          <input placeholder={t('auth.host')} value={host} onChange={(event) => setHost(event.target.value)} autoCapitalize="off" spellCheck={false} />
-          <input placeholder={t('auth.username')} value={username} onChange={(event) => setUsername(event.target.value)} autoCapitalize="off" spellCheck={false} />
+          {preset !== 'bitbucket' && (
+            <input placeholder={t('auth.host')} value={host} onChange={(event) => setHost(event.target.value)} autoCapitalize="off" spellCheck={false} />
+          )}
+          {PRESETS[preset].tokenUrl(host.trim().toLowerCase()) !== null && (
+            <button type="button" className="link" onClick={openTokenPage}>
+              {t(preset === 'bitbucket' ? 'auth.openTokenPageBitbucket' : 'auth.openTokenPageGitlab')}
+            </button>
+          )}
+          <input placeholder={t(preset === 'bitbucket' ? 'auth.email' : 'auth.username')} value={username} onChange={(event) => setUsername(event.target.value)} autoCapitalize="off" spellCheck={false} />
           <input type="password" placeholder={t('auth.token')} value={token} onChange={(event) => setToken(event.target.value)} autoComplete="off" />
-          <button type="submit" disabled={host.trim() === '' || username.trim() === '' || token === ''}>
+          <button type="submit" disabled={host.trim() === '' || (username.trim() === '' && PRESETS[preset].defaultUser === '') || token === ''}>
             {t('common.save')}
           </button>
           <button type="button" className="ghost" onClick={() => setMode('idle')}>

@@ -136,12 +136,43 @@ export class Credentials {
     if (!this.options.secrets.isEncryptionAvailable()) {
       throw new Error('Secure storage is unavailable on this system, so the token cannot be saved safely')
     }
+    await this.verifyToken(cleanHost, cleanUser, token)
     return this.save(profileId, {
       kind: 'token',
       host: cleanHost,
       username: cleanUser,
       token: this.options.secrets.encryptString(token).toString('base64')
     })
+  }
+
+  /**
+   * Reject a token the provider says is invalid, so a typo surfaces now rather than as a failed
+   * push later. Only gitlab.com and bitbucket.org are checked; network errors and other
+   * statuses (e.g. a Bitbucket token without the read-user scope) do not block saving.
+   */
+  private async verifyToken(host: string, username: string, token: string): Promise<void> {
+    let url: string
+    let headers: Record<string, string>
+    if (host === 'gitlab.com') {
+      url = 'https://gitlab.com/api/v4/user'
+      headers = { 'PRIVATE-TOKEN': token }
+    } else if (host === 'bitbucket.org') {
+      url = 'https://api.bitbucket.org/2.0/user'
+      headers = { Authorization: `Basic ${Buffer.from(`${username}:${token}`).toString('base64')}` }
+    } else return
+    let status: number
+    try {
+      status = (await this.request(url, { headers: { ...headers, Accept: 'application/json', 'User-Agent': 'GitDesk' } })).status
+    } catch {
+      return
+    }
+    if (status === 401) {
+      throw new Error(
+        host === 'gitlab.com'
+          ? 'GitLab rejected this access token. Check that it was copied completely and has not expired.'
+          : 'Bitbucket rejected this email and API token. Check the Atlassian account email and that the token was copied completely.'
+      )
+    }
   }
 
   /** Disconnect a profile. A GitHub token is not revoked on github.com. */
@@ -168,7 +199,8 @@ export class Credentials {
       return {} // Keychain changed or entry unreadable: behave as not connected.
     }
     const host = entry.kind === 'github' ? GITHUB_HOST : entry.host
-    const user = entry.kind === 'github' ? 'x-access-token' : entry.username
+    // Bitbucket API tokens authenticate git over HTTPS under a fixed username (the email is for its REST API).
+    const user = entry.kind === 'github' ? 'x-access-token' : host === 'bitbucket.org' ? 'x-bitbucket-api-token-auth' : entry.username
     const sshName = host.replace(/:\d+$/, '')
     const basic = Buffer.from(`${user}:${secret}`).toString('base64')
     return {

@@ -58,3 +58,18 @@ export function runGit(
     if (options.input !== undefined) child.stdin?.end(options.input)
   })
 }
+
+/** Run git and return raw stdout bytes (for blobs). Fails with GitError on a non-zero exit. */
+export function runGitBytes(cwd: string, args: readonly string[], maxBytes: number): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      GIT_BINARY,
+      ['-c', 'core.quotepath=false', ...args],
+      { cwd, maxBuffer: maxBytes, encoding: 'buffer', env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } },
+      (error, stdout, stderr) => {
+        if (!error) resolve(stdout)
+        else reject(new GitError(args, typeof error.code === 'number' ? error.code : null, stderr.toString() || error.message))
+      }
+    )
+  })
+}

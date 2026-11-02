@@ -1,5 +1,8 @@
 import type { ChangeKind, DiffTarget, FileChange, StashFile } from '../../shared/model'
-import { runGit } from './exec'
+import { readFile, stat } from 'node:fs/promises'
+import { join } from 'node:path'
+import { MAX_BLOB_BYTES, type FileBlob, type FileSides } from '../../shared/viewers'
+import { runGit, runGitBytes } from './exec'
 
 const DIFF_FLAGS = ['--no-color', '--no-ext-diff'] as const
 
@@ -115,6 +118,61 @@ export async function readDiff(repo: string, target: DiffTarget): Promise<string
         parts.stash,
         ...pathspec(target.path, target.origPath)
       ])
+    }
+  }
+}
+
+const toBlob = (size: number, bytes: Buffer): FileBlob => ({
+  size,
+  base64: bytes.subarray(0, MAX_BLOB_BYTES).toString('base64'),
+  truncated: size > MAX_BLOB_BYTES
+})
+
+/** A blob at `rev:path` (or `:path` for the index); null when it does not exist there. */
+async function gitBlob(repo: string, spec: string): Promise<FileBlob | null> {
+  const size = (await runGit(repo, ['cat-file', '-s', spec], { okExitCodes: [128] })).trim()
+  if (!/^\d+$/.test(size)) return null
+  if (Number(size) > MAX_BLOB_BYTES) return { size: Number(size), base64: '', truncated: true }
+  return toBlob(Number(size), await runGitBytes(repo, ['cat-file', 'blob', spec], MAX_BLOB_BYTES + 1024))
+}
+
+async function workingBlob(repo: string, path: string): Promise<FileBlob | null> {
+  const file = join(repo, path)
+  try {
+    const { size } = await stat(file)
+    if (size > MAX_BLOB_BYTES) return { size, base64: '', truncated: true }
+    return toBlob(size, await readFile(file))
+  } catch {
+    return null
+  }
+}
+
+/** The before/after bytes of one file for a diff target, for viewers of non-text content. */
+export async function readFileSides(repo: string, target: DiffTarget): Promise<FileSides> {
+  switch (target.kind) {
+    case 'working': {
+      if (target.untracked) return { old: null, new: await workingBlob(repo, target.path) }
+      if (target.staged) {
+        return { old: await gitBlob(repo, `HEAD:${target.path}`), new: await gitBlob(repo, `:${target.path}`) }
+      }
+      return { old: await gitBlob(repo, `:${target.path}`), new: await workingBlob(repo, target.path) }
+    }
+    case 'commit': {
+      const base = await baseOf(repo, target.hash)
+      return {
+        old: await gitBlob(repo, `${base}:${target.origPath ?? target.path}`),
+        new: await gitBlob(repo, `${target.hash}:${target.path}`)
+      }
+    }
+    case 'stash': {
+      const parts = await stashParts(repo, target.ref)
+      if (target.untracked) {
+        return { old: null, new: parts.untracked ? await gitBlob(repo, `${parts.untracked}:${target.path}`) : null }
+      }
+      return {
+        old: await gitBlob(repo, `${parts.head}:${target.origPath ?? target.path}`),
+        new: await gitBlob(repo, `${parts.stash}:${target.path}`)
+      }
     }
   }
 }

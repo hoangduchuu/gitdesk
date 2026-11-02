@@ -191,7 +191,7 @@ export interface RemoteState {
   profileName: string | null
 }
 
-export type GitProvider = 'github' | 'gitlab' | 'gitea'
+export type GitProvider = 'github' | 'gitlab' | 'gitea' | 'bitbucket'
 
 /** Create a repository on a git provider, add it as a remote and push the current branch to it. */
 export interface PublishInput {
