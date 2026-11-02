@@ -4,12 +4,12 @@ import '@xterm/xterm/css/xterm.css'
 import { useEffect, useRef, useState } from 'react'
 import type { TerminalEvent } from '../../../shared/api'
 import { api, errorMessage } from '../api'
-import { useSettings, type Theme } from '../hooks/useSettings'
+import { useResolvedTheme } from '../hooks/useSettings'
 import { useT } from '../i18n'
 import { Icon } from '../icons'
 
 /** xterm colours per app theme (xterm draws its own canvas, so CSS variables do not reach it). */
-const TERMINAL_THEMES: Record<Theme, { background: string; foreground: string; cursor: string; selectionBackground: string }> = {
+const TERMINAL_THEMES: Record<'dark' | 'light', { background: string; foreground: string; cursor: string; selectionBackground: string }> = {
   dark: { background: '#16181d', foreground: '#d7dae0', cursor: '#d7dae0', selectionBackground: '#2c3a55' },
   light: { background: '#ffffff', foreground: '#1f2328', cursor: '#1f2328', selectionBackground: '#dbe6fb' }
 }
@@ -33,7 +33,7 @@ export function TerminalPanel({ repo, visible, onClose }: Props) {
   const [height, setHeight] = useState(DEFAULT_HEIGHT)
   const [session, setSession] = useState(0)
   const [exited, setExited] = useState<number | null>(null)
-  const { theme } = useSettings()
+  const theme = useResolvedTheme()
   const t = useT()
   const termRef = useRef<Terminal | null>(null)
 

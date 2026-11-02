@@ -82,7 +82,7 @@ function MediaPane(props: { kind: ViewerKind; mime: string; old: FileBlob | null
         {both && (
           <span className="seg">
             {(['side', 'swipe', 'onion'] as const).map((m) => (
-              <button key={m} type="button" className={mode === m ? 'ghost active' : 'ghost'} onClick={() => setMode(m)}>
+              <button key={m} type="button" className={mode === m ? 'ghost active' : 'ghost'} aria-pressed={mode === m} onClick={() => setMode(m)}>
                 {t(`viewer.mode.${m}`)}
               </button>
             ))}
@@ -90,9 +90,9 @@ function MediaPane(props: { kind: ViewerKind; mime: string; old: FileBlob | null
         )}
         {kind === 'image' && (
           <span className="seg">
-            <button type="button" className={zoom === 'fit' ? 'ghost active' : 'ghost'} onClick={() => setZoom('fit')}>{t('viewer.fit')}</button>
+            <button type="button" className={zoom === 'fit' ? 'ghost active' : 'ghost'} aria-pressed={zoom === 'fit'} onClick={() => setZoom('fit')}>{t('viewer.fit')}</button>
             {[0.5, 1, 2, 4].map((z) => (
-              <button key={z} type="button" className={zoom === z ? 'ghost active' : 'ghost'} onClick={() => setZoom(z)}>
+              <button key={z} type="button" className={zoom === z ? 'ghost active' : 'ghost'} aria-pressed={zoom === z} onClick={() => setZoom(z)}>
                 {z * 100}%
               </button>
             ))}

@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import type { Profile, ProfileAuthState } from '../../../shared/model'
 import { api, errorMessage, unwrap } from '../api'
 import { useT } from '../i18n'
+import { useConfirm } from './ConfirmDialog'
 import { Avatar } from './Avatar'
 import { Icon } from '../icons'
 import { ProfileAuthControls } from './ProfileAuthControls'
@@ -17,6 +18,7 @@ const EMPTY_DRAFT: Draft = { name: '', email: '' }
 /** Add, edit and delete commit profiles (name + email). */
 export function ProfilesDialog({ repo, onClose }: Props) {
   const t = useT()
+  const confirm = useConfirm()
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [auth, setAuth] = useState<ProfileAuthState>({ githubConfigured: false, byProfile: {} })
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT)
@@ -46,7 +48,7 @@ export function ProfilesDialog({ repo, onClose }: Props) {
   }
 
   const remove = async (profile: Profile): Promise<void> => {
-    if (!window.confirm(t('profiles.deleteConfirm', { name: profile.name, email: profile.email }))) {
+    if (!(await confirm(t('profiles.deleteConfirm', { name: profile.name, email: profile.email }), { danger: true }))) {
       return
     }
     const result = await api().deleteProfile(repo, profile.id)

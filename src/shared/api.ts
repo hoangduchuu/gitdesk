@@ -79,7 +79,7 @@ export interface GitDeskApi {
   /** Like getAvatars for many authors at once (the commit graph), each with one of their commits. */
   getPeopleAvatars(repo: string, people: Array<{ email: string; hash: string }>, gravatar: boolean): Async<Record<string, string | null>>
   getStashFiles(repo: string, ref: string): Async<StashFile[]>
-  getDiff(repo: string, target: DiffTarget): Async<string>
+  getDiff(repo: string, target: DiffTarget, ignoreWhitespace?: boolean): Async<string>
   getFileSides(repo: string, target: DiffTarget): Async<FileSides>
 
   stage(repo: string, paths: string[]): Async<null>

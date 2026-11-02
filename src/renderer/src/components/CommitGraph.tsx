@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent } from 'react'
 import type { GraphNode } from '../../../shared/graph-nodes'
 import { ageMarkers } from '../../../shared/format'
 import { groupRefs, type RefLabel } from '../../../shared/refs'
@@ -28,10 +28,12 @@ interface Props {
   onContextMenu: (node: GraphNode, event: MouseEvent) => void
   /** A branch label was dropped on another: ask what to do (merge, rebase). */
   onBranchDrop: BranchDrop
+  /** Changes each time the search bar should open and take focus (Cmd/Ctrl+F). */
+  searchTick: number
 }
 
 /** Virtualised list: only rows near the viewport are rendered, so large histories stay fast. */
-export function CommitGraph({ repo, rows, selectedHash, revealHash, picked, onSelect, onContextMenu, onBranchDrop }: Props) {
+export function CommitGraph({ repo, rows, selectedHash, revealHash, picked, onSelect, onContextMenu, onBranchDrop, searchTick }: Props) {
   const t = useT()
   const viewport = useRef<HTMLDivElement>(null)
   const [scrollTop, setScrollTop] = useState(0)
@@ -44,6 +46,71 @@ export function CommitGraph({ repo, rows, selectedHash, revealHash, picked, onSe
     observer.observe(element)
     return () => observer.disconnect()
   }, [])
+
+  const scrollToIndex = useCallback((index: number): void => {
+    const element = viewport.current
+    if (!element) return
+    const top = index * ROW_HEIGHT
+    if (top < element.scrollTop) element.scrollTop = top
+    else if (top + ROW_HEIGHT > element.scrollTop + element.clientHeight) element.scrollTop = top + ROW_HEIGHT - element.clientHeight
+  }, [])
+
+  // ----- search (Cmd/Ctrl+F) -----
+  const [query, setQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [hit, setHit] = useState(0)
+  const searchInput = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (searchTick === 0) return
+    setSearchOpen(true)
+    searchInput.current?.focus()
+    searchInput.current?.select()
+  }, [searchTick])
+  const matches = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    if (!searchOpen || needle === '') return [] as number[]
+    const found: number[] = []
+    rows.forEach((row, index) => {
+      if (searchText(row.node).includes(needle)) found.push(index)
+    })
+    return found
+  }, [rows, query, searchOpen])
+  const matchSet = useMemo(() => new Set(matches), [matches])
+  useEffect(() => setHit(0), [query])
+  const goToHit = (next: number): void => {
+    if (matches.length === 0) return
+    const wrapped = (next + matches.length) % matches.length
+    setHit(wrapped)
+    const index = matches[wrapped]!
+    scrollToIndex(index)
+    onSelect(rows[index]!.node, false)
+  }
+  const closeSearch = (): void => {
+    setSearchOpen(false)
+    setQuery('')
+    viewport.current?.focus()
+  }
+
+  // ----- keyboard navigation -----
+  const selectedIndex = rows.findIndex((row) => row.node.hash === selectedHash)
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
+    if (rows.length === 0) return
+    const page = Math.max(1, Math.floor(height / ROW_HEIGHT) - 1)
+    const moves: Record<string, number> = {
+      ArrowDown: selectedIndex + 1,
+      ArrowUp: selectedIndex === -1 ? 0 : selectedIndex - 1,
+      PageDown: selectedIndex + page,
+      PageUp: selectedIndex - page,
+      Home: 0,
+      End: rows.length - 1
+    }
+    const target = moves[event.key]
+    if (target === undefined || event.metaKey || event.ctrlKey || event.altKey) return
+    event.preventDefault()
+    const index = Math.min(rows.length - 1, Math.max(0, target))
+    scrollToIndex(index)
+    onSelect(rows[index]!.node, false)
+  }
 
   useEffect(() => {
     const element = viewport.current
@@ -92,7 +159,38 @@ export function CommitGraph({ repo, rows, selectedHash, revealHash, picked, onSe
         <div className="col-graph">{t('graph.graph')}</div>
         <div className="col-message">{t('graph.commitMessage')}</div>
       </div>
-      <div className="graph-viewport" ref={viewport} onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}>
+      {searchOpen && (
+        <div className="graph-search" role="search">
+          <input
+            ref={searchInput}
+            type="search"
+            value={query}
+            placeholder={t('graph.search')}
+            aria-label={t('graph.search')}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') closeSearch()
+              else if (event.key === 'Enter') goToHit(hit + (event.shiftKey ? -1 : 1))
+            }}
+          />
+          <span className="muted" aria-live="polite">
+            {query.trim() === '' ? '' : matches.length === 0 ? t('graph.noMatches') : `${hit + 1}/${matches.length}`}
+          </span>
+          <button type="button" className="ghost" onClick={() => goToHit(hit - 1)} disabled={matches.length === 0} aria-label={t('graph.prevMatch')}>↑</button>
+          <button type="button" className="ghost" onClick={() => goToHit(hit + 1)} disabled={matches.length === 0} aria-label={t('graph.nextMatch')}>↓</button>
+          <button type="button" className="ghost" onClick={closeSearch} aria-label={t('common.close')}>✕</button>
+        </div>
+      )}
+      <div
+        className="graph-viewport"
+        ref={viewport}
+        tabIndex={0}
+        role="listbox"
+        aria-label={t('graph.commitMessage')}
+        aria-activedescendant={selectedIndex === -1 ? undefined : `graph-row-${selectedIndex}`}
+        onKeyDown={onKeyDown}
+        onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+      >
         <div style={{ height: rows.length * ROW_HEIGHT, position: 'relative' }}>
           {rows.slice(first, last).map((row, i) => {
             const index = first + i
@@ -101,7 +199,10 @@ export function CommitGraph({ repo, rows, selectedHash, revealHash, picked, onSe
             return (
               <div
                 key={row.node.hash}
-                className={`graph-row row-${row.node.kind}${refs.length > 0 ? ' has-refs' : ''}${
+                id={`graph-row-${index}`}
+                role="option"
+                aria-selected={row.node.hash === selectedHash}
+                className={`graph-row row-${row.node.kind}${refs.length > 0 ? ' has-refs' : ''}${matchSet.has(index) ? ' search-hit' : ''}${matches[hit] === index ? ' search-current' : ''}${
                   row.node.hash === selectedHash || picked.has(row.node.hash) ? ' selected' : ''
                 }`}
                 style={{ top: index * ROW_HEIGHT, height: ROW_HEIGHT, '--lane-color': color } as CSSProperties}
@@ -241,9 +342,24 @@ function Count({ kind, value }: { kind: 'modified' | 'added' | 'deleted' | 'conf
 const firstLine = (text: string): string => text.split('\n').find((line) => line.trim() !== '')?.trim() ?? ''
 
 const fullMessage = (node: GraphNode): string | undefined => {
-  if (node.kind === 'commit') return [node.commit.subject, node.commit.body].filter(Boolean).join('\n\n')
+  if (node.kind === 'commit') {
+    const { commit } = node
+    const meta = `${commit.hash.slice(0, 7)} · ${commit.authorName} · ${new Date(commit.authorTime * 1000).toLocaleString()}`
+    return [commit.subject, commit.body, meta].filter(Boolean).join('\n\n')
+  }
   if (node.kind === 'stash') return node.stash.message
   return undefined
+}
+
+/** Lower-cased text a search looks in: message, author, hash and ref names. */
+const searchText = (node: GraphNode): string => {
+  if (node.kind === 'commit') {
+    const { commit } = node
+    return [commit.subject, commit.body, commit.authorName, commit.authorEmail, commit.hash, ...commit.refs.map((ref) => ref.name)]
+      .join('\n')
+      .toLowerCase()
+  }
+  return node.kind === 'stash' ? node.stash.message.toLowerCase() : 'wip working changes'
 }
 
 const nodeTime = (node: GraphNode): number | null =>

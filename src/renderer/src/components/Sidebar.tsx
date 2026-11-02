@@ -1,5 +1,6 @@
-import type { MouseEvent } from 'react'
+import { useState, type MouseEvent } from 'react'
 import type { BranchDrop } from '../branchDrag'
+import { keyboardActivatable } from '../a11y'
 import { useBranchDnd } from '../branchDrag'
 import type { Branch, Remote, Stash, Tag } from '../../../shared/model'
 import { maskUrl } from '../../../shared/remote-url'
@@ -31,11 +32,26 @@ export function Sidebar(props: Props) {
   const t = useT()
   const { branches, stashes, tags, remotes, selectedStash, onSelectBranch, onCheckout, onSelectStash } = props
   const { onSelectTag, onBranchMenu, onTagMenu, onStashMenu, onBranchDrop, onRemoteMenu, onAddRemote, onPublish } = props
-  const local = branches.filter((branch) => branch.kind === 'local')
-  const remote = branches.filter((branch) => branch.kind === 'remote')
+  const [query, setQuery] = useState('')
+  const needle = query.trim().toLowerCase()
+  const matches = (name: string): boolean => needle === '' || name.toLowerCase().includes(needle)
+  const local = branches.filter((branch) => branch.kind === 'local' && matches(branch.name))
+  const remote = branches.filter((branch) => branch.kind === 'remote' && matches(branch.name))
+  const visibleRemotes = remotes.filter((item) => matches(item.name))
+  const visibleTags = tags.filter((tag) => matches(tag.name))
+  const visibleStashes = stashes.filter((stash) => matches(stash.message))
 
   return (
     <nav className="sidebar" aria-label={t('sidebar.label')}>
+      <input
+        type="search"
+        className="sidebar-filter"
+        placeholder={t('sidebar.filter')}
+        aria-label={t('sidebar.filter')}
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        onKeyDown={(event) => event.key === 'Escape' && setQuery('')}
+      />
       <h3 className="sidebar-heading"><Icon name="local" size={14} />{t('sidebar.local', { count: local.length })}</h3>
       <ul className="sidebar-list">
         {local.map((branch) => (
@@ -82,7 +98,7 @@ export function Sidebar(props: Props) {
             </button>
           </li>
         )}
-        {remotes.map((remote) => (
+        {visibleRemotes.map((remote) => (
           <li key={remote.name} className="sidebar-item" onContextMenu={(event) => onRemoteMenu(remote, event)} title={`${maskUrl(remote.fetchUrl)}\n${t('sidebar.rightClickActions')}`}>
             <span className="item-name">{remote.name}</span>
             <span className="count remote-url">{maskUrl(remote.fetchUrl)}</span>
@@ -93,10 +109,11 @@ export function Sidebar(props: Props) {
       <h3 className="sidebar-heading"><Icon name="tag" size={14} />{t('sidebar.tags', { count: tags.length })}</h3>
       <ul className="sidebar-list">
         {tags.length === 0 && <li className="sidebar-empty">{t('sidebar.noTags')}</li>}
-        {tags.map((tag) => (
+        {visibleTags.map((tag) => (
           <li
             key={tag.name}
             className="sidebar-item"
+            {...keyboardActivatable(() => onSelectTag(tag))}
             onClick={() => onSelectTag(tag)}
             onContextMenu={(event) => onTagMenu(tag, event)}
             title={tag.message ?? t('sidebar.rightClickActions')}
@@ -110,10 +127,11 @@ export function Sidebar(props: Props) {
       <h3 className="sidebar-heading"><Icon name="stash" size={14} />{t('sidebar.stashes', { count: stashes.length })}</h3>
       <ul className="sidebar-list">
         {stashes.length === 0 && <li className="sidebar-empty">{t('sidebar.noStashes')}</li>}
-        {stashes.map((stash) => (
+        {visibleStashes.map((stash) => (
           <li
             key={stash.hash}
             className={`sidebar-item${stash.ref === selectedStash ? ' selected' : ''}`}
+            {...keyboardActivatable(() => onSelectStash(stash))}
             onClick={() => onSelectStash(stash)}
             onContextMenu={(event) => onStashMenu(stash, event)}
           >
@@ -146,6 +164,7 @@ function BranchItem({ branch, title, onSelect, onCheckout, onMenu, onDrop }: Bra
     <li
       {...props}
       className={`sidebar-item${local && branch.isHead ? ' head' : ''}${over ? ' drop-over' : ''}`}
+      {...keyboardActivatable(() => onSelect(branch))}
       onClick={() => onSelect(branch)}
       onDoubleClick={() => onCheckout(branch)}
       onContextMenu={(event) => onMenu(branch, event)}

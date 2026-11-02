@@ -41,3 +41,21 @@ describe('parseUnifiedDiff', () => {
     expect(parseUnifiedDiff('')).toEqual({ binary: false, hunks: [] })
   })
 })
+
+import { splitRows } from '../src/shared/diff-parse'
+
+describe('splitRows', () => {
+  const line = (kind: 'context' | 'added' | 'removed', text: string) => ({ kind, text, oldLine: null, newLine: null })
+  test('pairs removed with added lines and pads the shorter side', () => {
+    const rows = splitRows([line('context', 'a'), line('removed', 'x'), line('removed', 'y'), line('added', 'z'), line('context', 'b')])
+    expect(rows.map((r) => [r.left?.text ?? null, r.right?.text ?? null])).toEqual([
+      ['a', 'a'],
+      ['x', 'z'],
+      ['y', null],
+      ['b', 'b']
+    ])
+  })
+  test('an addition alone has no left side', () => {
+    expect(splitRows([line('added', 'n')])).toEqual([{ left: null, right: line('added', 'n') }])
+  })
+})

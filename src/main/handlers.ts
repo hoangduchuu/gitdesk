@@ -142,10 +142,10 @@ export const createHandlers = (
   },
   getCommitFiles: async (repo, hash) => readCommitFiles(repo, requireHash(hash)),
   getStashFiles: async (repo, ref) => readStashFiles(repo, stashRef(ref)),
-  getDiff: async (repo, target) => {
+  getDiff: async (repo, target, ignoreWhitespace) => {
     const checked = requireDiffTarget(repo, target)
     if (checked.kind === 'stash') requireStashRef(checked.ref)
-    return readDiff(repo, checked)
+    return readDiff(repo, checked, { ignoreWhitespace: ignoreWhitespace === true })
   },
   getFileSides: async (repo, target) => {
     const checked = requireDiffTarget(repo, target)

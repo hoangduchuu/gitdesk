@@ -618,7 +618,7 @@ textarea {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 230px minmax(0, 1fr) 360px;
+  grid-template-columns: 230px 0 minmax(0, 1fr) 0 360px;
 }
 
 .center {
@@ -2418,3 +2418,96 @@ img.avatar {
 .viewer-overlay { position: absolute; inset: 0; }
 .viewer-handle { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent, #4c8dff); pointer-events: none; }
 .viewer-hex { margin: 0; font: 12px/1.5 var(--font-mono); overflow: auto; }
+
+.sidebar-filter {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  width: calc(100% - 16px);
+  margin: 8px;
+  box-sizing: border-box;
+}
+
+.toast {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 60;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: min(480px, calc(100vw - 32px));
+  padding: 10px 12px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  animation: toast-in 0.15s ease-out;
+}
+.toast-text { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
+
+.commit-hint { margin: 0; font-size: 12px; color: var(--text-dim); }
+.commit-hint.warn { color: var(--warning, #d29922); }
+
+/* ---------- graph search, focus, skeleton ---------- */
+
+.graph-viewport:focus-visible { outline: 2px solid var(--accent, #4c8dff); outline-offset: -2px; }
+.graph-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-raised);
+}
+.graph-search input { flex: 1; min-width: 0; }
+.graph-row.search-hit { background: color-mix(in srgb, var(--warning, #d29922) 14%, transparent); }
+.graph-row.search-current { box-shadow: inset 3px 0 0 var(--warning, #d29922); }
+
+.skeleton { padding: 8px 12px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.skeleton-row { display: flex; align-items: center; gap: 14px; height: 18px; }
+.skeleton-bar, .skeleton-dot {
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, var(--border) 25%, var(--bg-raised) 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+.skeleton-dot { width: 12px; height: 12px; border-radius: 50%; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skeleton-bar, .skeleton-dot { animation: none; } }
+
+/* One consistent keyboard focus ring for anything interactive. */
+:focus-visible { outline: 2px solid var(--accent, #4c8dff); outline-offset: 1px; }
+[role='option']:focus-visible, .tab:focus-visible { outline-offset: -2px; }
+
+.splitter {
+  position: relative;
+  z-index: 2;
+  width: 8px;
+  margin: 0 -4px;
+  cursor: col-resize;
+  touch-action: none;
+}
+.splitter::after {
+  content: '';
+  position: absolute;
+  inset: 0 3px;
+  transition: background-color 0.15s ease;
+}
+.splitter:hover::after, .splitter:focus-visible::after, .splitter:active::after { background: var(--accent, #4c8dff); }
+
+/* ---------- diff tools & split layout ---------- */
+
+.diff-view:focus { outline: none; }
+.diff-tools { display: inline-flex; align-items: center; gap: 8px; }
+.diff-tools .seg { display: inline-flex; align-items: center; gap: 2px; }
+.diff-tools .ghost.active { background: var(--bg); font-weight: 600; }
+.hunk-position { font-size: 12px; min-width: 3em; text-align: center; }
+.diff-split { table-layout: fixed; }
+.diff-split .col-no { width: 48px; }
+.diff-split .diff-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.diff-split td.diff-empty { background: color-mix(in srgb, var(--border) 25%, transparent); }
+.diff-split tr > td:nth-child(2) { border-right: 1px solid var(--border); }

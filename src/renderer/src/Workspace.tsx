@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { layoutGraph } from '../../shared/graph'
 import { buildGraphNodes, WIP_HASH, type GraphNode } from '../../shared/graph-nodes'
 import type { Branch, DiffTarget, GitflowConfig, GitflowState, PublishInput } from '../../shared/model'
@@ -8,6 +8,7 @@ import { api } from './api'
 import type { BranchDrop } from './branchDrag'
 import { ChangesPanel } from './components/ChangesPanel'
 import { ChoiceDialog, type ChoiceRequest } from './components/ChoiceDialog'
+import { useConfirm } from './components/ConfirmDialog'
 import { CommitGraph } from './components/CommitGraph'
 import { CommitPanel } from './components/CommitPanel'
 import { ConflictView } from './components/ConflictView'
@@ -24,6 +25,9 @@ import { Sidebar } from './components/Sidebar'
 import { StashPanel } from './components/StashPanel'
 import { TerminalPanel } from './components/TerminalPanel'
 import { Toolbar } from './components/Toolbar'
+import { Splitter } from './components/Splitter'
+import { DEFAULT_WIDTHS, usePaneWidths } from './hooks/usePaneWidths'
+import { Toast } from './components/Toast'
 import { MessageDialog } from './components/MessageDialog'
 import { useRepository } from './hooks/useRepository'
 import { useT, useTCount } from './i18n'
@@ -48,6 +52,7 @@ interface Props {
 /** One repository's window content: toolbar, sidebar, graph, details and terminal. */
 export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
   const t = useT()
+  const confirm = useConfirm()
   const tCount = useTCount()
   const [selection, setSelection] = useState<Selection>(null)
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
@@ -81,6 +86,8 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
   const controller = useRepository(repo, active)
   const { data, busy, error, notice, setError, setNotice, run } = controller
   const gitdesk = api()
+  const [searchTick, setSearchTick] = useState(0)
+  const [widths, setWidths] = usePaneWidths()
 
   const rows = useMemo(
     () => (data ? layoutGraph(buildGraphNodes(data.commits, data.stashes, data.status)) : []),
@@ -109,11 +116,37 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
     onSelectionGone: () => setSelection(null),
     prompt: setPrompt,
     choose: setChoice,
+    confirm,
     openRebase: (base) => setCenter({ kind: 'rebase', base }),
     openGitflowInit: setGitflowInit,
     t,
     tCount
   })
+
+  // Keyboard shortcuts for the active tab. The latest handlers are kept in a ref so the listener is bound once.
+  const shortcuts = useRef<Record<string, () => void>>({})
+  shortcuts.current = {
+    f: () => {
+      closeCenter()
+      setSearchTick((tick) => tick + 1)
+    },
+    'shift+f': () => void run(t('app.fetching'), () => gitdesk.fetch(path)),
+    'shift+p': () => push(),
+    'shift+l': () => actions.pull(),
+    ',': () => setSettingsOpen(true)
+  }
+  useEffect(() => {
+    if (!active) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey) return
+      const handler = shortcuts.current[`${event.shiftKey ? 'shift+' : ''}${event.key.toLowerCase()}`]
+      if (!handler) return
+      event.preventDefault()
+      handler()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [active])
 
   const openMenu = (items: MenuItem[], event: MouseEvent): void => {
     event.preventDefault()
@@ -295,24 +328,24 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
         onTerminal={toggleTerminal}
         onSettings={() => setSettingsOpen(true)}
       />
-      {error ? (
-        <MessageDialog kind="error" message={error} onClose={() => setError(null)} />
-      ) : (
-        notice && <MessageDialog kind="notice" message={notice} onClose={() => setNotice(null)} />
-      )}
+      {error && <MessageDialog kind="error" message={error} onClose={() => setError(null)} />}
+      {!error && notice && <Toast message={notice} onClose={() => setNotice(null)} />}
       {status && (
         <OperationBanner
           status={status}
           onContinue={() => void run(t('app.continuing'), () => gitdesk.continueOperation(path)).then(actions.reportMerge)}
           onAbort={() => {
-            if (window.confirm(t('app.abortConfirm'))) {
-              void run(t('app.aborting'), () => gitdesk.abortOperation(path))
-            }
+            void confirm(t('app.abortConfirm'), { danger: true }).then((ok) => {
+              if (ok) void run(t('app.aborting'), () => gitdesk.abortOperation(path))
+            })
           }}
         />
       )}
 
-      <div className="workspace">
+      <div
+        className="workspace"
+        style={{ gridTemplateColumns: `${widths.sidebar}px 0 minmax(0, 1fr) 0 ${widths.details}px` }}
+      >
         {data ? (
           <Sidebar
             branches={data.branches}
@@ -339,8 +372,17 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
           <nav className="sidebar" />
         )}
 
+        <Splitter
+          value={widths.sidebar}
+          min={160}
+          max={480}
+          direction={1}
+          reset={DEFAULT_WIDTHS.sidebar}
+          label={t('layout.resizeSidebar')}
+          onChange={(sidebar) => setWidths({ sidebar })}
+        />
         <main className="center">
-          {!data && <p className="hint">{t('common.loadingRepository')}</p>}
+          {!data && <GraphSkeleton label={t('common.loadingRepository')} />}
           {data && center.kind === 'graph' && (
             <CommitGraph
               repo={path}
@@ -351,6 +393,7 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
               onSelect={selectNode}
               onContextMenu={nodeMenu}
               onBranchDrop={branchDrop}
+              searchTick={searchTick}
             />
           )}
           {center.kind === 'diff' && (
@@ -380,6 +423,15 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
           )}
         </main>
 
+        <Splitter
+          value={widths.details}
+          min={280}
+          max={720}
+          direction={-1}
+          reset={DEFAULT_WIDTHS.details}
+          label={t('layout.resizeDetails')}
+          onChange={(details) => setWidths({ details })}
+        />
         <aside className="details">
           {selection?.kind === 'wip' && status && (
             <ChangesPanel
@@ -445,6 +497,21 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
           }}
         />
       )}
+    </div>
+  )
+}
+
+/** Placeholder rows while the repository loads, so the layout does not jump. */
+function GraphSkeleton({ label }: { label: string }) {
+  return (
+    <div className="skeleton" role="status" aria-label={label}>
+      {Array.from({ length: 14 }, (_, i) => (
+        <div key={i} className="skeleton-row">
+          <span className="skeleton-bar" style={{ width: 60 + ((i * 37) % 30) }} />
+          <span className="skeleton-dot" />
+          <span className="skeleton-bar" style={{ width: `${35 + ((i * 53) % 50)}%` }} />
+        </div>
+      ))}
     </div>
   )
 }

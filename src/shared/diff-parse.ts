@@ -47,3 +47,33 @@ export function parseUnifiedDiff(text: string): ParsedDiff {
   }
   return { binary, hunks }
 }
+
+export interface SplitRow {
+  left: DiffLine | null
+  right: DiffLine | null
+}
+
+/**
+ * Lay a hunk out for side-by-side display: context lines on both sides, and each run of removed
+ * lines next to the run of added lines that follows it.
+ */
+export function splitRows(lines: readonly DiffLine[]): SplitRow[] {
+  const rows: SplitRow[] = []
+  let i = 0
+  while (i < lines.length) {
+    const line = lines[i]!
+    if (line.kind === 'context' || line.kind === 'note') {
+      rows.push({ left: line, right: line })
+      i++
+      continue
+    }
+    const removed: DiffLine[] = []
+    const added: DiffLine[] = []
+    while (lines[i]?.kind === 'removed') removed.push(lines[i++]!)
+    while (lines[i]?.kind === 'added') added.push(lines[i++]!)
+    for (let k = 0; k < Math.max(removed.length, added.length); k++) {
+      rows.push({ left: removed[k] ?? null, right: added[k] ?? null })
+    }
+  }
+  return rows
+}

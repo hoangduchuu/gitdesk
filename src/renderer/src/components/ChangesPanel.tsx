@@ -3,6 +3,7 @@ import type { DiffTarget, FileChange, WorkingTreeStatus } from '../../../shared/
 import { api } from '../api'
 import type { RepositoryController } from '../hooks/useRepository'
 import { useT, useTCount } from '../i18n'
+import { useConfirm } from './ConfirmDialog'
 import { FileList, type FileListItem } from './FileList'
 import { ProfileSelect } from './ProfileSelect'
 import { ViewModeToggle } from './ViewModeToggle'
@@ -19,6 +20,8 @@ interface Props {
   onManageProfiles: () => void
 }
 
+const SUBJECT_LIMIT = 72
+
 type ChangeItem = FileListItem & { change: FileChange }
 
 const toItems = (changes: readonly FileChange[], prefix: string): ChangeItem[] =>
@@ -33,6 +36,7 @@ export function ChangesPanel(props: Props) {
   const { run } = controller
   const gitdesk = api()
   const t = useT()
+  const confirm = useConfirm()
   const tCount = useTCount()
 
   const unstaged = toItems(status.unstaged, 'unstaged')
@@ -46,9 +50,9 @@ export function ChangesPanel(props: Props) {
       item.key
     )
 
-  const discardChanges = (changes: FileChange[]): void => {
+  const discardChanges = async (changes: FileChange[]): Promise<void> => {
     const names = changes.map((change) => change.path).join('\n')
-    if (!window.confirm(t('changes.discardConfirm', { names }))) return
+    if (!(await confirm(t('changes.discardConfirm', { names }), { danger: true }))) return
     void run(t('changes.discarding'), () => gitdesk.discard(repo, changes))
   }
 
@@ -80,6 +84,10 @@ export function ChangesPanel(props: Props) {
       // No commit to amend yet; leave the message as typed.
     }
   }
+
+  const subjectLength = [...(message.split('\n')[0] ?? '')].length
+  /** HEAD is already on the upstream, so amending it needs a force push afterwards. */
+  const pushedHead = status.upstream !== null && status.ahead === 0 && !status.unborn
 
   const canCommit = message.trim() !== '' && (staged.length > 0 || amend) && conflicted.length === 0
 
@@ -183,6 +191,10 @@ export function ChangesPanel(props: Props) {
             if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && canCommit) void commit()
           }}
         />
+        {subjectLength > SUBJECT_LIMIT && (
+          <p className="commit-hint warn" role="status">{t('changes.subjectLong', { count: subjectLength, limit: SUBJECT_LIMIT })}</p>
+        )}
+        {amend && pushedHead && <p className="commit-hint warn" role="status">{t('changes.amendPublished')}</p>}
         <div className="commit-actions">
           <label className="checkbox">
             <input type="checkbox" checked={amend} onChange={(event) => void toggleAmend(event.target.checked)} />

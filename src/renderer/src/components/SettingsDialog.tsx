@@ -5,7 +5,8 @@ import { Icon } from '../icons'
 
 const THEMES: ReadonlyArray<[Theme, MessageKey]> = [
   ['dark', 'settings.theme.dark'],
-  ['light', 'settings.theme.light']
+  ['light', 'settings.theme.light'],
+  ['system', 'settings.theme.system']
 ]
 
 /** Language names are written in their own language so anyone can find theirs. */
@@ -50,9 +51,10 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 key={value}
                 type="button"
                 className={settings.theme === value ? 'active' : 'ghost'}
+                aria-pressed={settings.theme === value}
                 onClick={() => updateSettings({ theme: value })}
               >
-                <Icon name={value === 'dark' ? 'themeDark' : 'themeLight'} size={14} />
+                <Icon name={value === 'light' ? 'themeLight' : 'themeDark'} size={14} />
                 {t(label)}
               </button>
             ))}

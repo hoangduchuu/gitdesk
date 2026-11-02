@@ -1,5 +1,6 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
 import { buildFileTree, type TreeNode } from '../../../shared/file-tree'
+import { keyboardActivatable } from '../a11y'
 import { splitPath } from '../../../shared/format'
 import type { ChangeKind, ConflictKind } from '../../../shared/model'
 import { useFileViewMode } from '../hooks/useFileViewMode'
@@ -76,6 +77,7 @@ function renderTree<T extends FileListItem>(
         key={`dir:${node.path}`}
         className="file-row folder-row"
         style={{ paddingLeft: BASE_PADDING + depth * INDENT } as CSSProperties}
+        {...keyboardActivatable(() => toggle(node.path))}
         onClick={() => toggle(node.path)}
         title={node.path}
         aria-expanded={isOpen}
@@ -103,6 +105,7 @@ function FileRow<T extends FileListItem>({
     <li
       className={`file-row${file.key === selectedKey ? ' selected' : ''}`}
       style={{ paddingLeft: BASE_PADDING + depth * INDENT + (depth > 0 ? FILE_OFFSET : 0) } as CSSProperties}
+      {...keyboardActivatable(() => onOpen(file))}
       onClick={() => onOpen(file)}
       title={file.origPath ? `${file.origPath} → ${file.path}` : file.path}
     >

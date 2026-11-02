@@ -19,6 +19,7 @@ export interface ActionContext {
   onSelectionGone: () => void
   prompt: (request: PromptRequest) => void
   choose: (request: ChoiceRequest) => void
+  confirm: (message: string, options?: { danger?: boolean }) => Promise<boolean>
   openRebase: (base: string) => void
   /** Show the dialog for the Git Flow branch names and prefixes. */
   openGitflowInit: (state: GitflowState) => void
@@ -36,6 +37,7 @@ export function createActions(ctx: ActionContext) {
   const { path, controller, status, t, tCount } = ctx
   const { run } = controller
   const gitdesk = api()
+  const confirm = ctx.confirm
   const current = status?.branch ?? 'HEAD'
 
   const reportMerge = (result: Result<MergeOutcome>): void => {
@@ -82,22 +84,22 @@ export function createActions(ctx: ActionContext) {
       })
     })
   }
-  const merge = (name: string): void => {
-    if (!window.confirm(t('action.mergeConfirm', { name, current }))) return
+  const merge = async (name: string): Promise<void> => {
+    if (!(await confirm(t('action.mergeConfirm', { name, current })))) return
     void run(t('action.merging'), () => gitdesk.mergeBranch(path, name)).then(reportMerge)
   }
-  const deleteBranch = (name: string): void => {
-    if (!window.confirm(t('action.deleteBranchConfirm', { name }))) return
+  const deleteBranch = async (name: string): Promise<void> => {
+    if (!(await confirm(t('action.deleteBranchConfirm', { name }), { danger: true }))) return
     void run(t('action.deletingBranch'), async () => {
       const result = await gitdesk.deleteBranch(path, name, false)
       if (result.ok || !result.error.includes('not fully merged')) return result
-      return window.confirm(t('action.forceDeleteBranchConfirm', { name }))
+      return (await confirm(t('action.forceDeleteBranchConfirm', { name }), { danger: true }))
         ? gitdesk.deleteBranch(path, name, true)
         : { ok: true as const, data: null }
     })
   }
-  const deleteRemoteBranch = (name: string): void => {
-    if (!window.confirm(t('action.deleteRemoteBranchConfirm', { name }))) return
+  const deleteRemoteBranch = async (name: string): Promise<void> => {
+    if (!(await confirm(t('action.deleteRemoteBranchConfirm', { name }), { danger: true }))) return
     void run(t('action.deletingRemoteBranch'), () => gitdesk.deleteRemoteBranch(path, name))
   }
   const createBranch = (name: string, at: string | null): void => {
@@ -120,22 +122,22 @@ export function createActions(ctx: ActionContext) {
     })
 
   // ---------- commits ----------
-  const cherryPick = (hashes: string[]): void => {
+  const cherryPick = async (hashes: string[]): Promise<void> => {
     const what = hashes.length === 1 ? short(hashes[0]!) : tCount('action.commits', hashes.length)
-    if (!window.confirm(t('action.cherryPickConfirm', { what, current }))) return
+    if (!(await confirm(t('action.cherryPickConfirm', { what, current })))) return
     void run(t('action.cherryPicking'), () => gitdesk.cherryPick(path, hashes)).then(reportMerge)
   }
-  const revert = (commit: Commit): void => {
-    if (!window.confirm(t('action.revertConfirm', { hash: short(commit.hash), subject: commit.subject }))) return
+  const revert = async (commit: Commit): Promise<void> => {
+    if (!(await confirm(t('action.revertConfirm', { hash: short(commit.hash), subject: commit.subject })))) return
     void run(t('action.reverting'), () => gitdesk.revertCommit(path, commit.hash)).then(reportMerge)
   }
-  const reset = (commit: Commit, mode: ResetMode): void => {
+  const reset = async (commit: Commit, mode: ResetMode): Promise<void> => {
     const warning = mode === 'hard' ? `\n\n${t('action.resetWarning')}` : ''
-    if (!window.confirm(t('action.resetConfirm', { current, hash: short(commit.hash), mode, warning }))) return
+    if (!(await confirm(t('action.resetConfirm', { current, hash: short(commit.hash), mode, warning }), { danger: true }))) return
     void run(t('action.resetting'), () => gitdesk.resetTo(path, commit.hash, mode))
   }
-  const checkoutCommit = (commit: Commit): void => {
-    if (!window.confirm(t('action.checkoutCommitConfirm', { hash: short(commit.hash) }))) return
+  const checkoutCommit = async (commit: Commit): Promise<void> => {
+    if (!(await confirm(t('action.checkoutCommitConfirm', { hash: short(commit.hash) })))) return
     void run(t('action.checkout'), () => gitdesk.checkoutCommit(path, commit.hash))
   }
 
@@ -159,12 +161,12 @@ export function createActions(ctx: ActionContext) {
       }
     })
   const pushTag = (tag: Tag): void => void run(t('action.pushingTag'), () => gitdesk.pushTag(path, tag.name))
-  const deleteTag = (tag: Tag): void => {
-    if (!window.confirm(t('action.deleteTagLocalConfirm', { name: tag.name }))) return
+  const deleteTag = async (tag: Tag): Promise<void> => {
+    if (!(await confirm(t('action.deleteTagLocalConfirm', { name: tag.name }), { danger: true }))) return
     void run(t('action.deletingTag'), () => gitdesk.deleteTag(path, tag.name))
   }
-  const deleteRemoteTag = (tag: Tag): void => {
-    if (!window.confirm(t('action.deleteTagRemoteConfirm', { name: tag.name }))) return
+  const deleteRemoteTag = async (tag: Tag): Promise<void> => {
+    if (!(await confirm(t('action.deleteTagRemoteConfirm', { name: tag.name }), { danger: true }))) return
     void run(t('action.deletingRemoteTag'), () => gitdesk.deleteRemoteTag(path, tag.name))
   }
 
@@ -178,8 +180,8 @@ export function createActions(ctx: ActionContext) {
       if (result.ok && !result.data.conflicts) ctx.onSelectionGone()
     })
   }
-  const dropStash = (stash: Stash): void => {
-    if (!window.confirm(t('action.dropStashConfirm', { ref: stash.ref, message: stash.message }))) return
+  const dropStash = async (stash: Stash): Promise<void> => {
+    if (!(await confirm(t('action.dropStashConfirm', { ref: stash.ref, message: stash.message }), { danger: true }))) return
     void run(t('action.droppingStash'), () => gitdesk.stashDrop(path, stash.ref)).then((result) => {
       if (result.ok) ctx.onSelectionGone()
     })
@@ -205,8 +207,8 @@ export function createActions(ctx: ActionContext) {
     void run(t('app.forcePushing'), () => gitdesk.push(path, true))
   }
   /** Force push after the user agreed; used by menus, where nothing else has asked yet. */
-  const confirmForcePush = (): void => {
-    if (window.confirm(t('action.forcePushConfirm', { branch: current }))) forcePush()
+  const confirmForcePush = async (): Promise<void> => {
+    if ((await confirm(t('action.forcePushConfirm', { branch: current }), { danger: true }))) forcePush()
   }
   /** Push; when git refuses because history diverged, offer to pull first or to force push. */
   const push = (): void => {
@@ -271,8 +273,8 @@ export function createActions(ctx: ActionContext) {
       submitLabel: t('action.changeUrl'),
       onSubmit: (url) => void run(t('action.changingRemoteUrl'), () => gitdesk.setRemoteUrl(path, remote.name, url))
     })
-  const removeRemote = (remote: Remote): void => {
-    if (!window.confirm(t('action.removeRemoteConfirm', { name: remote.name, url: maskUrl(remote.fetchUrl) }))) return
+  const removeRemote = async (remote: Remote): Promise<void> => {
+    if (!(await confirm(t('action.removeRemoteConfirm', { name: remote.name, url: maskUrl(remote.fetchUrl) }), { danger: true }))) return
     void run(t('action.removingRemote'), () => gitdesk.removeRemote(path, remote.name))
   }
   const remoteMenu = (remote: Remote): MenuItem[] => [
@@ -287,13 +289,13 @@ export function createActions(ctx: ActionContext) {
   /** The menu shown when a branch is dropped on another: merge it in, or rebase it on top. */
   const branchDropMenu = (source: DragBranch, target: DragBranch, branches: readonly Branch[]): MenuItem[] => {
     const params = { source: source.name, target: target.name }
-    const merge = (): void => {
+    const merge = async (): Promise<void> => {
       void run(t('action.merging'), () => gitdesk.mergeBranchInto(path, source.name, target.name)).then(reportMerge)
     }
-    const rebase = (): void => {
+    const rebase = async (): Promise<void> => {
       // Rewriting commits that were already pushed makes the next push fail without a force push.
       const published = branches.some((branch) => branch.kind === 'local' && branch.name === source.name && branch.upstream !== null)
-      if (published && !window.confirm(t('dnd.rebasePublishedConfirm', { name: source.name }))) return
+      if (published && !(await confirm(t('dnd.rebasePublishedConfirm', { name: source.name }), { danger: true }))) return
       void run(t('app.rebasing'), () => gitdesk.rebaseBranch(path, source.name, target.name)).then(reportMerge)
     }
     return [

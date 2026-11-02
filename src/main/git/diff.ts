@@ -87,32 +87,33 @@ export async function readStashFiles(repo: string, ref: string): Promise<StashFi
 const pathspec = (path: string, origPath?: string): string[] =>
   origPath ? ['--', origPath, path] : ['--', path]
 
-const workingDiff = (repo: string, path: string, staged: boolean, untracked: boolean): Promise<string> => {
+const workingDiff = (repo: string, path: string, staged: boolean, untracked: boolean, flags: readonly string[]): Promise<string> => {
   if (untracked) {
     // --no-index exits with 1 when the files differ, which is always the case here.
-    return runGit(repo, ['diff', ...DIFF_FLAGS, '--no-index', '--', '/dev/null', path], { okExitCodes: [1] })
+    return runGit(repo, ['diff', ...flags, '--no-index', '--', '/dev/null', path], { okExitCodes: [1] })
   }
-  return runGit(repo, ['diff', ...DIFF_FLAGS, ...(staged ? ['--cached'] : []), '--', path])
+  return runGit(repo, ['diff', ...flags, ...(staged ? ['--cached'] : []), '--', path])
 }
 
 /** Unified diff text for one file of the working tree, a commit or a stash. */
-export async function readDiff(repo: string, target: DiffTarget): Promise<string> {
+export async function readDiff(repo: string, target: DiffTarget, options: { ignoreWhitespace?: boolean } = {}): Promise<string> {
+  const flags = options.ignoreWhitespace ? [...DIFF_FLAGS, '-w'] : DIFF_FLAGS
   switch (target.kind) {
     case 'working':
-      return workingDiff(repo, target.path, target.staged, target.untracked)
+      return workingDiff(repo, target.path, target.staged, target.untracked, flags)
     case 'commit': {
       const base = await baseOf(repo, target.hash)
-      return runGit(repo, ['diff', ...DIFF_FLAGS, '-M', base, target.hash, ...pathspec(target.path, target.origPath)])
+      return runGit(repo, ['diff', ...flags, '-M', base, target.hash, ...pathspec(target.path, target.origPath)])
     }
     case 'stash': {
       const parts = await stashParts(repo, target.ref)
       if (target.untracked) {
         if (!parts.untracked) throw new Error(`${target.ref} has no untracked files`)
-        return runGit(repo, ['diff', ...DIFF_FLAGS, await emptyTree(repo), parts.untracked, '--', target.path])
+        return runGit(repo, ['diff', ...flags, await emptyTree(repo), parts.untracked, '--', target.path])
       }
       return runGit(repo, [
         'diff',
-        ...DIFF_FLAGS,
+        ...flags,
         '-M',
         parts.head,
         parts.stash,

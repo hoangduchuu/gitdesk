@@ -10,6 +10,7 @@ import type { ConflictDetail, ConflictSide } from '../../../shared/model'
 import { api, errorMessage, unwrap } from '../api'
 import type { RepositoryController } from '../hooks/useRepository'
 import { useT, useTCount, type Translate } from '../i18n'
+import { useConfirm } from './ConfirmDialog'
 import { Icon, type IconName } from '../icons'
 
 type State = { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; detail: ConflictDetail }
@@ -80,6 +81,7 @@ const CHOICES: ReadonlyArray<
 ]
 
 function ConflictEditor({ detail, onSave, t, tCount }: { detail: ConflictDetail; onSave: (content: string) => Promise<void>; t: Translate; tCount: (base: string, count: number) => string }) {
+  const confirm = useConfirm()
   const segments = useMemo(() => parseConflictMarkers(detail.working ?? ''), [detail.working])
   const blocks = segments.filter((segment): segment is ConflictSegment => segment.kind === 'conflict')
   const [choices, setChoices] = useState<Array<ConflictChoice | null>>(() => blocks.map(() => null))
@@ -105,8 +107,8 @@ function ConflictEditor({ detail, onSave, t, tCount }: { detail: ConflictDetail;
     setChoices((current) => current.map((value, i) => (i === index ? choice : value)))
   }
 
-  const save = (): void => {
-    if (hasConflictMarkers(result) && !window.confirm(t('conflict.saveMarkersConfirm'))) return
+  const save = async (): Promise<void> => {
+    if (hasConflictMarkers(result) && !(await confirm(t('conflict.saveMarkersConfirm'), { danger: true }))) return
     void onSave(result)
   }
 
