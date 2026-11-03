@@ -2517,3 +2517,20 @@ img.avatar {
 .conflict-base { margin: 6px 0; font-size: 12px; }
 .conflict-base summary { cursor: pointer; color: var(--text-dim); }
 .conflict-base pre { margin: 4px 0 0; padding: 6px 8px; background: var(--bg-raised); border: 1px solid var(--border); overflow: auto; }
+
+.conflict-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 0 8px;
+  font: 12px/1.6 var(--font-mono);
+  cursor: pointer;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.conflict-line:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.conflict-line.is-kept { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.conflict-line input { margin-top: 4px; flex: none; }
+.conflict-empty { margin: 0; padding: 8px; color: var(--text-dim); }
+.conflict-order { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; }
+.conflict-order [aria-pressed='true'] { font-weight: 600; background: var(--bg); }

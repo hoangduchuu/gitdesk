@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   buildResolution,
   hasConflictMarkers,
+  linesOf,
   parseConflictMarkers,
+  selectedLines,
+  type BlockChoice,
   type ConflictChoice,
   type ConflictSegment
 } from '../../../shared/conflict-markers'
@@ -97,7 +100,7 @@ function ConflictEditor({ detail, onSave, t, tCount }: { detail: ConflictDetail;
   const confirm = useConfirm()
   const segments = useMemo(() => parseConflictMarkers(detail.working ?? ''), [detail.working])
   const blocks = segments.filter((segment): segment is ConflictSegment => segment.kind === 'conflict')
-  const [choices, setChoices] = useState<Array<ConflictChoice | null>>(() => blocks.map(() => null))
+  const [choices, setChoices] = useState<Array<BlockChoice | null>>(() => blocks.map(() => null))
   const [result, setResult] = useState(detail.working ?? '')
   const [edited, setEdited] = useState(false)
 
@@ -113,6 +116,28 @@ function ConflictEditor({ detail, onSave, t, tCount }: { detail: ConflictDetail;
       <p className="hint">
         {detail.binary ? t('conflict.binaryFile') : t('conflict.deletedOnOneSide', { kind: detail.kind })} {t('conflict.takeFileHelp')}
       </p>
+    )
+  }
+
+  /** Toggle one line of one side; the block becomes a hand-picked mix. */
+  const toggleLine = (block: ConflictSegment, side: 'ours' | 'theirs', line: number): void => {
+    setEdited(false)
+    setChoices((current) =>
+      current.map((value, i) => {
+        if (i !== block.index) return value
+        const picked = selectedLines(block, value)
+        const flags = [...picked[side]]
+        flags[line] = !flags[line]
+        return { kind: 'lines', ours: picked.ours, theirs: picked.theirs, theirsFirst: picked.theirsFirst, [side]: flags }
+      })
+    )
+  }
+
+  /** Which side's lines come first in a hand-picked block. */
+  const setOrder = (block: ConflictSegment, theirsFirst: boolean): void => {
+    setEdited(false)
+    setChoices((current) =>
+      current.map((value, i) => (i === block.index ? { kind: 'lines', ...selectedLines(block, value), theirsFirst } : value))
     )
   }
 
@@ -163,21 +188,50 @@ function ConflictEditor({ detail, onSave, t, tCount }: { detail: ConflictDetail;
           </div>
         )}
         {blocks.length === 0 && <p className="hint">{t('conflict.noMarkers')}</p>}
+        {blocks.length > 0 && <p className="muted">{t('conflict.lineHelp')}</p>}
         {blocks.map((block) => (
           <div key={block.index} id={`conflict-block-${block.index}`} className={`conflict-block${choices[block.index] ? ' is-resolved' : ''}`}>
             <div className="conflict-block-title">
               {t('conflict.count', { current: block.index + 1, total: blocks.length })}
             </div>
             <div className="conflict-sides">
-              <div className={`conflict-side side-ours${choices[block.index]?.includes('ours') ? ' chosen' : ''}`}>
-                <div className="side-label">{t('conflict.current')} · {block.oursLabel || 'HEAD'}</div>
-                <pre>{block.ours || t('conflict.empty')}</pre>
-              </div>
-              <div className={`conflict-side side-theirs${choices[block.index]?.includes('theirs') ? ' chosen' : ''}`}>
-                <div className="side-label">{t('conflict.incoming')} · {block.theirsLabel || t('conflict.incomingFallback')}</div>
-                <pre>{block.theirs || t('conflict.empty')}</pre>
-              </div>
+              {(['ours', 'theirs'] as const).map((side) => {
+                const picked = selectedLines(block, choices[block.index] ?? null)
+                const lines = linesOf(block[side])
+                const label =
+                  side === 'ours'
+                    ? `${t('conflict.current')} · ${block.oursLabel || 'HEAD'}`
+                    : `${t('conflict.incoming')} · ${block.theirsLabel || t('conflict.incomingFallback')}`
+                return (
+                  <div key={side} className={`conflict-side side-${side}${picked[side].some(Boolean) ? ' chosen' : ''}`}>
+                    <div className="side-label">{label}</div>
+                    {lines.length === 0 && <pre className="conflict-empty">{t('conflict.empty')}</pre>}
+                    {lines.map((line, n) => (
+                      <label key={n} className={`conflict-line${picked[side][n] ? ' is-kept' : ''}`}>
+                        <input
+                          type="checkbox"
+                          checked={picked[side][n] ?? false}
+                          onChange={() => toggleLine(block, side, n)}
+                          aria-label={t('conflict.keepLine', { side: label, line: n + 1 })}
+                        />
+                        <code>{line.replace(/\r?\n$/, '') || ' '}</code>
+                      </label>
+                    ))}
+                  </div>
+                )
+              })}
             </div>
+            {typeof choices[block.index] === 'object' && (
+              <div className="conflict-order muted">
+                {t('conflict.order')}
+                <button type="button" className="ghost" onClick={() => setOrder(block, false)} aria-pressed={!(choices[block.index] as { theirsFirst: boolean }).theirsFirst}>
+                  {t('conflict.currentFirst')}
+                </button>
+                <button type="button" className="ghost" onClick={() => setOrder(block, true)} aria-pressed={(choices[block.index] as { theirsFirst: boolean }).theirsFirst}>
+                  {t('conflict.incomingFirst')}
+                </button>
+              </div>
+            )}
             {block.base !== null && (
               <details className="conflict-base">
                 <summary>{t('conflict.base')}</summary>

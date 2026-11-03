@@ -18,6 +18,16 @@ export type Segment = CommonSegment | ConflictSegment
 
 export type ConflictChoice = 'ours' | 'theirs' | 'both-ours-first' | 'both-theirs-first'
 
+/** A hand-picked mix: which lines of each side to keep, and which side comes first. */
+export interface LineChoice {
+  kind: 'lines'
+  ours: boolean[]
+  theirs: boolean[]
+  theirsFirst: boolean
+}
+
+export type BlockChoice = ConflictChoice | LineChoice
+
 const MARKER_LENGTH = 7
 
 /** True when `line` is `marker` repeated seven times, followed by a space or the end of the line. */
@@ -96,7 +106,30 @@ export function parseConflictMarkers(text: string): Segment[] {
   return segments
 }
 
-const resolveSegment = (segment: ConflictSegment, choice: ConflictChoice): string => {
+/** The lines of one side of a conflict, each keeping its line ending. */
+export const linesOf = (text: string): string[] => splitLines(text)
+
+/** Which lines of each side a choice keeps; nothing is kept while the conflict is unresolved. */
+export function selectedLines(segment: ConflictSegment, choice: BlockChoice | null): { ours: boolean[]; theirs: boolean[]; theirsFirst: boolean } {
+  const ours = linesOf(segment.ours)
+  const theirs = linesOf(segment.theirs)
+  const fill = (lines: string[], on: boolean): boolean[] => lines.map(() => on)
+  if (choice === null) return { ours: fill(ours, false), theirs: fill(theirs, false), theirsFirst: false }
+  if (typeof choice === 'object') return choice
+  return {
+    ours: fill(ours, choice !== 'theirs'),
+    theirs: fill(theirs, choice !== 'ours'),
+    theirsFirst: choice === 'both-theirs-first'
+  }
+}
+
+const resolveSegment = (segment: ConflictSegment, choice: BlockChoice): string => {
+  if (typeof choice === 'object') {
+    const keep = (text: string, flags: boolean[]): string => linesOf(text).filter((_, i) => flags[i]).join('')
+    const ours = keep(segment.ours, choice.ours)
+    const theirs = keep(segment.theirs, choice.theirs)
+    return choice.theirsFirst ? theirs + ours : ours + theirs
+  }
   switch (choice) {
     case 'ours':
       return segment.ours
@@ -112,7 +145,7 @@ const resolveSegment = (segment: ConflictSegment, choice: ConflictChoice): strin
 /** Build the resolved file, or null while any conflict has no choice yet. */
 export function buildResolution(
   segments: readonly Segment[],
-  choices: ReadonlyArray<ConflictChoice | null>
+  choices: ReadonlyArray<BlockChoice | null>
 ): string | null {
   let result = ''
   for (const segment of segments) {

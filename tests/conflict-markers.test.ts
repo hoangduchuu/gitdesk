@@ -62,3 +62,20 @@ test('hasConflictMarkers detects leftover markers', () => {
   expect(hasConflictMarkers(FILE)).toBe(true)
   expect(hasConflictMarkers('clean\n=======\n')).toBe(false)
 })
+
+describe('hand-picked lines', () => {
+  const text = 'top\n<<<<<<< HEAD\na1\na2\n=======\nb1\nb2\n>>>>>>> other\nend\n'
+  test('keeps chosen lines of each side, ours first by default', () => {
+    const segments = parseConflictMarkers(text)
+    const choice = { kind: 'lines' as const, ours: [true, false], theirs: [false, true], theirsFirst: false }
+    expect(buildResolution(segments, [choice])).toBe('top\na1\nb2\nend\n')
+    expect(buildResolution(segments, [{ ...choice, theirsFirst: true }])).toBe('top\nb2\na1\nend\n')
+  })
+  test('selectedLines mirrors a named choice', async () => {
+    const { selectedLines } = await import('../src/shared/conflict-markers')
+    const block = parseConflictMarkers(text).find((s) => s.kind === 'conflict')!
+    if (block.kind !== 'conflict') throw new Error('no block')
+    expect(selectedLines(block, 'ours')).toEqual({ ours: [true, true], theirs: [false, false], theirsFirst: false })
+    expect(selectedLines(block, null).ours).toEqual([false, false])
+  })
+})
