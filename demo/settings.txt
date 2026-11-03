@@ -1,6 +1,6 @@
 name = gitdesk
-port = 8080
-host = localhost
+port = 3000
+host = 0.0.0.0
 debug = false
-timeout = 30
+timeout = 60
 retries = 3
