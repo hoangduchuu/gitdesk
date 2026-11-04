@@ -28,6 +28,7 @@ import { readCommitDetails, readFileHistory, readLog } from './git/log'
 import { readReflog } from './git/reflog'
 import { readBlame } from './git/blame'
 import { searchCommits } from './git/search'
+import { undoLastAction } from './git/undo'
 import { rewordCommit } from './git/reword'
 import { addRemote, fetch, pull, push, readRemotes, removeRemote, setRemoteUrl } from './git/remote'
 import { publishRepository } from './publish'
@@ -113,6 +114,7 @@ export const createHandlers = (
   getBlame: async (repo, path, rev) => readBlame(repo, requireRepoPath(repo, path), requireNullableHash(rev)),
   searchCommits: async (repo, mode, query, limit) =>
     searchCommits(repo, requireSearchMode(mode), requireSearchQuery(query), requireInteger(limit, 'search limit', 1, MAX_SEARCH_RESULTS)),
+  undoLastAction: async (repo) => done(undoLastAction(repo)),
   getReflog: async (repo, limit) => readReflog(repo, requireInteger(limit, 'reflog limit', 1, MAX_LOG_LIMIT)),
   getCommitDetails: async (repo, hash) => readCommitDetails(repo, requireHash(hash)),
   getAvatars: async (repo, hash, emails, gravatar) => {

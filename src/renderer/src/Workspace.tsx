@@ -478,6 +478,7 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
               repo={path}
               reloadKey={data?.commits}
               onMenu={(entry, event) => openMenu(actions.reflogMenu(entry), event)}
+              onUndo={actions.undoLast}
               onClose={closeCenter}
             />
           )}
