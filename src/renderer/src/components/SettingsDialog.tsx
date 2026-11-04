@@ -134,6 +134,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           ))}
         </fieldset>
 
+        <p className="muted settings-hint">{t('settings.version', { version: __APP_VERSION__ })}</p>
+
         <div className="modal-actions">
           <button type="button" onClick={onClose}>
             {t('common.done')}

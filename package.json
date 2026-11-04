@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "postinstall": "node scripts/postinstall.cjs",
-    "dist": "electron-vite build && electron-builder --mac"
+    "dist": "electron-vite build && electron-builder --mac",
+    "release": "bash scripts/release.sh"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

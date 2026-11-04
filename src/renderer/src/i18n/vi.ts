@@ -125,6 +125,7 @@ export const vi: Record<MessageKey, string> = {
   'settings.avatars.gravatar': 'Git provider và Gravatar',
   'settings.avatars.hint': 'Ảnh được tra cho những người trong commit bạn chọn, không bao giờ tải trực tiếp từ giao diện. Gravatar là bên thứ ba: nó nhận một mã băm của mỗi địa chỉ email.',
   'settings.title': 'Cài đặt',
+  'settings.version': 'GitDesk phiên bản {version}',
   'settings.theme': 'Giao diện',
   'settings.theme.dark': 'Tối',
   'settings.theme.light': 'Sáng',

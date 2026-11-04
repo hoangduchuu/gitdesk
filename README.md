@@ -25,12 +25,17 @@ curl -fsSL https://raw.githubusercontent.com/hoangduchuu/gitdesk/develop/install
 
 Requires `git` on PATH.
 
-## Building a release
+## Releasing a new version
+
+Commit your work on `develop`, then:
 
 ```bash
-npm run dist       # produces dist/GitDesk-<version>-arm64.dmg
-gh release create v<version> dist/GitDesk-<version>-arm64.dmg --title "GitDesk <version>"
+npm run release                 # patch bump: 0.1.0 -> 0.1.1
+npm run release -- minor        # or major, or an exact version like 1.2.0
+npm run release -- minor --notes "What changed" --yes
 ```
+
+The script checks that the tree is clean and in sync with origin, bumps the version in `package.json`, runs typecheck and tests, builds the dmg, commits `Release vX.Y.Z`, pushes, and creates the GitHub release with the dmg attached. Needs the `gh` CLI, logged in. The running app shows its version in **Settings**.
 
 ## Requirements
 

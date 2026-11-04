@@ -126,6 +126,7 @@ export const en = {
   'settings.avatars.gravatar': 'Git provider and Gravatar',
   'settings.avatars.hint': 'Pictures are looked up for the people on the commit you select, never from the page itself. Gravatar is a third party: it receives a hash of each email address.',
   'settings.title': 'Settings',
+  'settings.version': 'GitDesk version {version}',
   'settings.theme': 'Theme',
   'settings.theme.dark': 'Dark',
   'settings.theme.light': 'Light',
