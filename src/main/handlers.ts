@@ -24,7 +24,9 @@ import { applySelection } from './git/partial'
 import { interactiveRebase, readRebaseCommits } from './git/rebase'
 import { finishGitflow, initGitflow, readGitflow, startGitflow } from './git/gitflow'
 import { createTag, deleteRemoteTag, deleteTag, pushTag, readTags } from './git/tags'
-import { readCommitDetails, readLog } from './git/log'
+import { readCommitDetails, readFileHistory, readLog } from './git/log'
+import { readReflog } from './git/reflog'
+import { readBlame } from './git/blame'
 import { rewordCommit } from './git/reword'
 import { addRemote, fetch, pull, push, readRemotes, removeRemote, setRemoteUrl } from './git/remote'
 import { publishRepository } from './publish'
@@ -102,6 +104,10 @@ export const createHandlers = (
   getStatus: async (repo) => readStatus(repo),
   getBranches: async (repo) => readBranches(repo),
   getStashes: async (repo) => readStashes(repo),
+  getFileHistory: async (repo, path, limit) =>
+    readFileHistory(repo, requireRepoPath(repo, path), requireInteger(limit, 'history limit', 1, MAX_LOG_LIMIT)),
+  getBlame: async (repo, path, rev) => readBlame(repo, requireRepoPath(repo, path), requireNullableHash(rev)),
+  getReflog: async (repo, limit) => readReflog(repo, requireInteger(limit, 'reflog limit', 1, MAX_LOG_LIMIT)),
   getCommitDetails: async (repo, hash) => readCommitDetails(repo, requireHash(hash)),
   getAvatars: async (repo, hash, emails, gravatar) => {
     const commitHash = requireHash(hash)

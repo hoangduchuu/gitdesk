@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ReactNode } from 'react'
+import { useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
 import { buildFileTree, type TreeNode } from '../../../shared/file-tree'
 import { keyboardActivatable } from '../a11y'
 import { splitPath } from '../../../shared/format'
@@ -19,6 +19,8 @@ interface Props<T extends FileListItem> {
   selectedKey?: string | null
   onOpen: (file: T) => void
   actions?: (file: T) => ReactNode
+  /** Right-click on a file row. */
+  onFileMenu?: (file: T, event: MouseEvent) => void
   empty?: string
 }
 
@@ -99,7 +101,8 @@ function FileRow<T extends FileListItem>({
   depth,
   selectedKey,
   onOpen,
-  actions
+  actions,
+  onFileMenu
 }: Props<T> & { file: T; label: ReactNode; depth: number }) {
   return (
     <li
@@ -107,6 +110,7 @@ function FileRow<T extends FileListItem>({
       style={{ paddingLeft: BASE_PADDING + depth * INDENT + (depth > 0 ? FILE_OFFSET : 0) } as CSSProperties}
       {...keyboardActivatable(() => onOpen(file))}
       onClick={() => onOpen(file)}
+      onContextMenu={onFileMenu && ((event) => onFileMenu(file, event))}
       title={file.origPath ? `${file.origPath} → ${file.path}` : file.path}
     >
       <span className="file-kind">

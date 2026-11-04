@@ -2580,3 +2580,176 @@ img.avatar {
   gap: 8px;
   margin: 6px 0 12px;
 }
+
+/* ---------- reflog ---------- */
+
+.reflog-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.reflog-body {
+  flex: 1;
+  overflow: auto;
+  padding: 12px;
+}
+
+.reflog-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.reflog-row {
+  display: grid;
+  grid-template-columns: 90px 70px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  cursor: default;
+}
+
+.reflog-row:last-child {
+  border-bottom: 0;
+}
+
+.reflog-row:hover {
+  background: var(--bg-hover);
+}
+
+.reflog-row.selected {
+  background: var(--bg-selected);
+}
+
+.reflog-action {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- file history ---------- */
+
+.history-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.history-list-wrap {
+  flex: 0 1 40%;
+  min-height: 90px;
+  overflow: auto;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.history-row {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr) 140px 110px auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  cursor: default;
+}
+
+.history-row:last-child {
+  border-bottom: 0;
+}
+
+.history-row:hover {
+  background: var(--bg-hover);
+}
+
+.history-row.selected {
+  background: var(--bg-selected);
+}
+
+.history-subject {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-pick {
+  padding: 12px;
+}
+
+/* ---------- blame ---------- */
+
+.blame-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.blame-body {
+  flex: 1;
+  overflow: auto;
+}
+
+.blame-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: var(--mono, ui-monospace, Menlo, monospace);
+  font-size: 12px;
+}
+
+.blame-row.alt {
+  background: var(--bg-hover);
+}
+
+.blame-row.first td {
+  border-top: 1px solid var(--border);
+}
+
+.blame-gutter {
+  width: 300px;
+  min-width: 300px;
+  max-width: 300px;
+  padding: 0 8px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.blame-commit {
+  display: flex;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.blame-author {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
+.blame-no {
+  width: 48px;
+  padding: 0 8px;
+  text-align: right;
+  color: var(--text-dim);
+  user-select: none;
+}
+
+.blame-text {
+  white-space: pre;
+  padding: 0 8px;
+}

@@ -1,5 +1,5 @@
 import { changeSummary, type ChangeSummary } from '../../../shared/format'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type MouseEvent } from 'react'
 import type { CommitDetails, DiffTarget } from '../../../shared/model'
 import type { Commit } from '../../../shared/types'
 import { api } from '../api'
@@ -27,11 +27,12 @@ interface Props {
   commit: Commit
   selectedKey: string | null
   onOpenDiff: (target: DiffTarget, title: string, key: string) => void
+  onFileMenu: (path: string, event: MouseEvent) => void
   onPrompt: (request: PromptRequest) => void
   onCreateBranch: (name: string, hash: string) => void
 }
 
-export function CommitPanel({ repo, commit, selectedKey, onOpenDiff, onPrompt, onCreateBranch }: Props) {
+export function CommitPanel({ repo, commit, selectedKey, onOpenDiff, onFileMenu, onPrompt, onCreateBranch }: Props) {
   const t = useT()
   const { language } = useSettings()
   const dateFormat = useMemo(() => new Intl.DateTimeFormat(localeOf(language), { dateStyle: 'short', timeStyle: 'short' }), [language])
@@ -124,6 +125,7 @@ export function CommitPanel({ repo, commit, selectedKey, onOpenDiff, onPrompt, o
             files={files.files.map((file) => ({ ...file, key: `${commit.hash}:${file.path}` }))}
             selectedKey={selectedKey}
             empty={t('commit.noFileChanges')}
+            onFileMenu={(file, event) => onFileMenu(file.path, event)}
             onOpen={(file) =>
               onOpenDiff(
                 { kind: 'commit', hash: commit.hash, path: file.path, ...(file.origPath ? { origPath: file.origPath } : {}) },

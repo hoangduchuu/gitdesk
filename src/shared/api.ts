@@ -19,6 +19,9 @@ import type {
   PublishInput,
   UpdateInfo,
   PublishResult,
+  ReflogEntry,
+  BlameLine,
+  FileHistoryEntry,
   RemoteState,
   RewordResult,
   RebaseStep,
@@ -88,6 +91,8 @@ export interface GitDeskApi {
   getStatus(repo: string): Async<WorkingTreeStatus>
   getBranches(repo: string): Async<Branch[]>
   getStashes(repo: string): Async<Stash[]>
+  /** Where HEAD has been, newest first: the way back to commits no branch points at any more. */
+  getReflog(repo: string, limit: number): Async<ReflogEntry[]>
   getCommitFiles(repo: string, hash: string): Async<FileChange[]>
   getCommitDetails(repo: string, hash: string): Async<CommitDetails>
   /**
@@ -140,6 +145,10 @@ export interface GitDeskApi {
   resetTo(repo: string, hash: string, mode: ResetMode): Async<null>
   checkoutCommit(repo: string, hash: string): Async<null>
 
+  /** Commits that changed a file, newest first, following renames. */
+  getFileHistory(repo: string, path: string, limit: number): Async<FileHistoryEntry[]>
+  /** Who last changed each line of a file; `rev` null blames the working tree. */
+  getBlame(repo: string, path: string, rev: string | null): Async<BlameLine[]>
   getTags(repo: string): Async<Tag[]>
   createTag(repo: string, name: string, hash: string, message: string | null): Async<null>
   deleteTag(repo: string, name: string): Async<null>
@@ -238,6 +247,9 @@ export const REPO_METHODS = [
   'revertCommit',
   'resetTo',
   'checkoutCommit',
+  'getReflog',
+  'getFileHistory',
+  'getBlame',
   'getTags',
   'createTag',
   'deleteTag',

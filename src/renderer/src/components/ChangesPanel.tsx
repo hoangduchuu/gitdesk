@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, type MouseEvent } from 'react'
 import type { DiffTarget, FileChange, WorkingTreeStatus } from '../../../shared/model'
 import { api } from '../api'
 import type { RepositoryController } from '../hooks/useRepository'
@@ -15,6 +15,7 @@ interface Props {
   controller: RepositoryController
   selectedKey: string | null
   onOpenDiff: (target: DiffTarget, title: string, key: string) => void
+  onFileMenu: (path: string, event: MouseEvent) => void
   onOpenConflict: (path: string) => void
   profileVersion: number
   onManageProfiles: () => void
@@ -28,7 +29,7 @@ const toItems = (changes: readonly FileChange[], prefix: string): ChangeItem[] =
   changes.map((change) => ({ ...change, key: `${prefix}:${change.path}`, change }))
 
 export function ChangesPanel(props: Props) {
-  const { repo, status, controller, selectedKey, onOpenDiff, onOpenConflict, profileVersion, onManageProfiles } = props
+  const { repo, status, controller, selectedKey, onOpenDiff, onFileMenu, onOpenConflict, profileVersion, onManageProfiles } = props
   const [message, setMessage] = useState('')
   const [amend, setAmend] = useState(false)
   /** Draft typed before amending, and the HEAD message loaded in its place, to undo on uncheck. */
@@ -129,6 +130,7 @@ export function ChangesPanel(props: Props) {
           files={unstaged}
           selectedKey={selectedKey}
           empty={t('changes.noUnstagedChanges')}
+          onFileMenu={(item, event) => onFileMenu(item.path, event)}
           onOpen={(item) => openWorking(item, false)}
           actions={(item) => (
             <>
@@ -166,6 +168,7 @@ export function ChangesPanel(props: Props) {
           files={staged}
           selectedKey={selectedKey}
           empty={t('changes.nothingStaged')}
+          onFileMenu={(item, event) => onFileMenu(item.path, event)}
           onOpen={(item) => openWorking(item, true)}
           actions={(item) => (
             <button

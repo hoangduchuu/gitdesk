@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import type { SelectionRequest } from '../../../shared/api'
 import { parseUnifiedDiff, splitRows, type DiffHunk, type DiffLine, type ParsedDiff } from '../../../shared/diff-parse'
 import type { DiffTarget } from '../../../shared/model'
@@ -24,6 +24,8 @@ interface Props {
   target: DiffTarget
   title: string
   staging?: StagingOptions
+  /** Extra buttons in the header, before Close (e.g. File history, Blame). */
+  headerActions?: ReactNode
   onClose: () => void
 }
 
@@ -50,7 +52,7 @@ const ACTIONS: Record<StagingOptions['source'], ReadonlyArray<[SelectionRequest[
   staged: [['unstage', 'unstage']]
 }
 
-export function DiffView({ repo, target, title, staging, onClose }: Props) {
+export function DiffView({ repo, target, title, staging, headerActions, onClose }: Props) {
   const t = useT()
   const confirm = useConfirm()
   const tCount = useTCount()
@@ -215,6 +217,7 @@ export function DiffView({ repo, target, title, staging, onClose }: Props) {
             {t(preview ? 'viewer.showDiff' : 'viewer.showPreview')}
           </button>
         )}
+        {headerActions}
         <button type="button" className="ghost" onClick={onClose}>
           <Icon name="close" size={14} />{t('diff.close')}
         </button>

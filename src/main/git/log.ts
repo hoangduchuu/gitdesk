@@ -1,4 +1,4 @@
-import type { CommitDetails } from '../../shared/model'
+import type { CommitDetails, FileHistoryEntry } from '../../shared/model'
 import { parseDecorations } from '../../shared/refs'
 import type { Commit } from '../../shared/types'
 import { runGit } from './exec'
@@ -40,6 +40,27 @@ export async function readCommits(repoPath: string, selection: readonly string[]
 /** Newest-first, topologically ordered commits from every branch and tag. */
 export function readLog(repoPath: string, limit: number): Promise<Commit[]> {
   return readCommits(repoPath, ['--topo-order', `--max-count=${limit}`, '--exclude=refs/stash', '--all'])
+}
+
+/**
+ * Commits that changed `path`, newest first, following it across renames, each with the name the
+ * file had in that commit. `rev` starts the walk at a commit instead of HEAD. Git's rename
+ * detection is a heuristic, so history can stop early when a file was heavily rewritten while it moved.
+ */
+export async function readFileHistory(repoPath: string, path: string, limit: number, rev: string | null = null): Promise<FileHistoryEntry[]> {
+  const selection = ['--follow', `--max-count=${limit}`, ...(rev === null ? [] : [rev]), '--', path]
+  const [commits, names] = await Promise.all([
+    readCommits(repoPath, selection),
+    // `--name-only` prints the file's name under each hash: it is the only place `--follow` reveals past names.
+    runGit(repoPath, ['log', '--follow', '--name-only', '--format=%x01%H', `--max-count=${limit}`, ...(rev === null ? [] : [rev]), '--', path])
+  ])
+  const pathAt = new Map<string, string>()
+  for (const block of names.split('\x01')) {
+    const [hash, ...rest] = block.split('\n')
+    const name = rest.find((line) => line !== '')
+    if (hash && name) pathAt.set(hash, name)
+  }
+  return commits.map((commit) => ({ commit, path: pathAt.get(commit.hash) ?? path }))
 }
 
 /** Author and committer of one commit. */

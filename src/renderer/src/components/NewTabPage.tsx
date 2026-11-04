@@ -88,6 +88,8 @@ const noRepoToolbar = (onOpen: () => void, onSettings: () => void) => ({
   onPushMenu: noop,
   onStash: noop,
   onPop: noop,
+  reflogOpen: false,
+  onReflog: noop,
   onProfiles: noop,
   terminalOpen: false,
   onTerminal: noop,

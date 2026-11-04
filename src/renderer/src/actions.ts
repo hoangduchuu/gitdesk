@@ -1,5 +1,5 @@
 import type { ResetMode } from '../../shared/api'
-import type { Branch, GitflowKind, GitflowState, MergeOutcome, Remote, Stash, Tag, WorkingTreeStatus } from '../../shared/model'
+import type { Branch, GitflowKind, GitflowState, MergeOutcome, ReflogEntry, Remote, Stash, Tag, WorkingTreeStatus } from '../../shared/model'
 import { maskUrl } from '../../shared/remote-url'
 import type { Commit, Result } from '../../shared/types'
 import { branchDropActions, type DragBranch } from '../../shared/branch-drag'
@@ -21,6 +21,10 @@ export interface ActionContext {
   choose: (request: ChoiceRequest) => void
   confirm: (message: string, options?: { danger?: boolean }) => Promise<boolean>
   openRebase: (base: string) => void
+  /** Show the commits that changed a file in the centre panel. */
+  openFileHistory: (path: string) => void
+  /** Show who last changed each line of a file in the centre panel. */
+  openBlame: (path: string) => void
   /** Show the dialog for the Git Flow branch names and prefixes. */
   openGitflowInit: (state: GitflowState) => void
   t: Translate
@@ -131,12 +135,12 @@ export function createActions(ctx: ActionContext) {
     if (!(await confirm(t('action.revertConfirm', { hash: short(commit.hash), subject: commit.subject })))) return
     void run(t('action.reverting'), () => gitdesk.revertCommit(path, commit.hash)).then(reportMerge)
   }
-  const reset = async (commit: Commit, mode: ResetMode): Promise<void> => {
+  const reset = async (commit: Pick<Commit, 'hash'>, mode: ResetMode): Promise<void> => {
     const warning = mode === 'hard' ? `\n\n${t('action.resetWarning')}` : ''
     if (!(await confirm(t('action.resetConfirm', { current, hash: short(commit.hash), mode, warning }), { danger: true }))) return
     void run(t('action.resetting'), () => gitdesk.resetTo(path, commit.hash, mode))
   }
-  const checkoutCommit = async (commit: Commit): Promise<void> => {
+  const checkoutCommit = async (commit: Pick<Commit, 'hash'>): Promise<void> => {
     if (!(await confirm(t('action.checkoutCommitConfirm', { hash: short(commit.hash) })))) return
     void run(t('action.checkout'), () => gitdesk.checkoutCommit(path, commit.hash))
   }
@@ -415,6 +419,26 @@ export function createActions(ctx: ActionContext) {
     ]
   }
 
+  /** Right-click on a file in the changes or commit panels. */
+  const fileMenu = (filePath: string): MenuItem[] => [
+    heading(filePath),
+    action(t('menu.fileHistory'), () => ctx.openFileHistory(filePath), { icon: 'reflog' }),
+    action(t('menu.blame'), () => ctx.openBlame(filePath), { icon: 'user' }),
+    action(t('menu.copyPath'), () => copy(filePath, t('copy.filePath')), { icon: 'copy' })
+  ]
+
+  /** Right-click on a reflog row: ways back to that state, without touching the entry itself. */
+  const reflogMenu = (entry: ReflogEntry): MenuItem[] => [
+    heading(`${short(entry.hash)} ${entry.selector}`),
+    action(t('menu.checkoutCommit'), () => checkoutCommit(entry), { icon: 'commit' }),
+    action(t('menu.createBranchHere'), () => promptCreateBranch(entry.hash), { icon: 'newBranch' }),
+    separator,
+    heading(t('menu.resetToCommit', { branch: current })),
+    ...(['soft', 'mixed', 'hard'] as const).map((mode) => action(t(`menu.reset${mode[0]!.toUpperCase()}${mode.slice(1)}` as 'menu.resetSoft' | 'menu.resetMixed' | 'menu.resetHard'), () => reset(entry, mode), { danger: mode === 'hard', icon: 'reset' })),
+    separator,
+    action(t('menu.copyCommitSha'), () => copy(entry.hash, t('copy.commitSha')), { icon: 'copy' })
+  ]
+
   const branchMenu = (branch: Branch): MenuItem[] => {
     const isRemote = branch.kind === 'remote'
     return [
@@ -479,6 +503,8 @@ export function createActions(ctx: ActionContext) {
     gitflowMenu,
     branchDropMenu,
     commitMenu,
+    fileMenu,
+    reflogMenu,
     branchMenu,
     tagMenu,
     stashMenu
