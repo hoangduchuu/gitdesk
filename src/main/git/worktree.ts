@@ -1,5 +1,6 @@
 import type { FileChange } from '../../shared/model'
 import { hasRevision } from './diff'
+import type { ProfileSigning } from '../../shared/model'
 import { runGit } from './exec'
 
 export async function stage(repo: string, paths: readonly string[]): Promise<void> {
@@ -27,6 +28,29 @@ export async function discard(repo: string, changes: readonly FileChange[]): Pro
 export interface Identity {
   name: string
   email: string
+  /** Sign the commit like this; git's own settings apply when absent. */
+  signing?: ProfileSigning
+}
+
+/**
+ * `-c` options that make one git command sign. `gpg.ssh.program` is spelled out because
+ * Apple's git has no default for it and fails with "cannot run : No such file" (unless the
+ * user already configured one).
+ */
+export async function signingOptions(repo: string, signing: ProfileSigning | undefined): Promise<string[]> {
+  if (!signing) return []
+  const options = ['-c', `gpg.format=${signing.format}`, '-c', 'commit.gpgsign=true']
+  // A public key typed in (not a file) must be marked as such for git; it then has to be loaded in ssh-agent.
+  const key = signing.format === 'ssh' && /^(ssh-|ecdsa-|sk-)/.test(signing.key) ? `key::${signing.key}` : signing.key
+  options.push('-c', `user.signingkey=${key}`)
+  if (signing.format === 'ssh') options.push(...(await sshProgramOptions(repo)))
+  return options
+}
+
+/** `-c gpg.ssh.program=ssh-keygen` unless the user configured a program. */
+export async function sshProgramOptions(repo: string): Promise<string[]> {
+  const configured = (await runGit(repo, ['config', '--get', 'gpg.ssh.program'], { okExitCodes: [1] })).trim()
+  return configured === '' ? ['-c', 'gpg.ssh.program=ssh-keygen'] : []
 }
 
 /**
@@ -45,7 +69,15 @@ export async function commit(repo: string, message: string, amend: boolean, iden
         GIT_COMMITTER_EMAIL: identity.email
       }
     : undefined
-  await runGit(repo, ['commit', '-q', ...(amend ? ['--amend'] : []), '-m', trimmed], env ? { env } : {})
+  const signing = await signingOptions(repo, identity?.signing)
+  try {
+    await runGit(repo, [...signing, 'commit', '-q', ...(amend ? ['--amend'] : []), '-m', trimmed], env ? { env } : {})
+  } catch (error) {
+    if (signing.length > 0 && error instanceof Error && !error.message.includes('nothing to commit')) {
+      throw new Error(`Signing the commit failed: ${error.message.trim()}\n\nCheck the signing key of this profile (Profiles). An ssh key must be a file git can read or be loaded in ssh-agent.`)
+    }
+    throw error
+  }
 }
 
 /** user.name / user.email as git resolves them in this repository (null when unset). */

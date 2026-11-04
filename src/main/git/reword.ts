@@ -3,7 +3,7 @@ import { abortOperation } from './conflict'
 import { GitError, runGit } from './exec'
 import { interactiveRebase, readRebaseCommits } from './rebase'
 import { currentOperation, readStatus } from './status'
-import type { Identity } from './worktree'
+import { signingOptions, type Identity } from './worktree'
 
 const isAncestorOfHead = async (repo: string, hash: string): Promise<boolean> => {
   try {
@@ -43,7 +43,7 @@ export async function rewordCommit(repo: string, hash: string, message: string, 
   if (full === (await runGit(repo, ['rev-parse', 'HEAD'])).trim()) {
     const env = identity ? { GIT_COMMITTER_NAME: identity.name, GIT_COMMITTER_EMAIL: identity.email } : undefined
     // --only without paths changes the message alone: staged changes stay staged for the next commit.
-    await runGit(repo, ['commit', '-q', '--amend', '--only', '--allow-empty', '-m', text], env ? { env } : {})
+    await runGit(repo, [...(await signingOptions(repo, identity?.signing)), 'commit', '-q', '--amend', '--only', '--allow-empty', '-m', text], env ? { env } : {})
     return { conflicts: false, published }
   }
 

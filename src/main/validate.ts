@@ -10,6 +10,7 @@ import type {
   GitflowKind,
   GitProvider,
   ProfileInput,
+  ProfileSigning,
   PublishInput,
   RebaseAction,
   RebaseStep,
@@ -202,7 +203,8 @@ export const requireProfileInput = (value: unknown): ProfileInput => {
   return {
     ...(id === undefined ? {} : { id: requireString(id, 'profile id') }),
     name: requireString(input['name'], 'profile name'),
-    email: requireString(input['email'], 'profile email')
+    email: requireString(input['email'], 'profile email'),
+    ...(input['signing'] === undefined ? {} : { signing: input['signing'] as ProfileSigning })
   }
 }
 

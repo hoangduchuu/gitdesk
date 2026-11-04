@@ -153,10 +153,19 @@ export interface RebaseStep {
 }
 
 /** A commit identity the user can switch between. */
+/** How commits made with a profile are signed. */
+export interface ProfileSigning {
+  format: 'ssh' | 'openpgp'
+  /** ssh: a key file path (e.g. `~/.ssh/id_ed25519.pub`) or a public key held by ssh-agent. openpgp: a key id. */
+  key: string
+}
+
 export interface Profile {
   id: string
   name: string
   email: string
+  /** Absent = commits are not signed by GitDesk (git's own `commit.gpgsign` still applies). */
+  signing?: ProfileSigning
 }
 
 export type ProfileInput = Omit<Profile, 'id'> & { id?: string }
@@ -277,7 +286,12 @@ export interface RewordResult extends MergeOutcome {
 }
 
 /** Who made a commit and who recorded it; the two differ after a rebase, cherry-pick or a web merge. */
+/** Result of checking a commit's signature on this computer. */
+export type SignatureStatus = 'none' | 'good' | 'unverified' | 'bad'
+
 export interface CommitDetails {
+  /** Whether the commit is signed, and if so whether this computer can vouch for the signer. */
+  signature: SignatureStatus
   hash: string
   authorName: string
   authorEmail: string

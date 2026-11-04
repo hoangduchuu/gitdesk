@@ -2759,3 +2759,15 @@ img.avatar {
 .graph-older button { display: flex; gap: 10px; width: 100%; text-align: left; }
 .graph-older button.selected { background: var(--bg-selected); }
 .graph-older-subject { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.commit-signature {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+.commit-signature.signature-good { color: var(--success, #2e7d32); }
+.commit-signature.signature-unverified { color: var(--warning, #b7791f); }
+.commit-signature.signature-bad { color: var(--danger, #c62828); }
