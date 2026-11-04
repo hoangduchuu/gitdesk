@@ -92,6 +92,9 @@ const done = async (work: Promise<unknown>): Promise<null> => {
   return null
 }
 
+/** One search at a time per repository: starting another, or cancelling, stops the running one. */
+const searches = new Map<string, AbortController>()
+
 /** IPC handlers; profiles live in `profiles`, shells in `terminals`. */
 export const createHandlers = (
   profiles: ProfileStore,
@@ -112,8 +115,22 @@ export const createHandlers = (
   getFileHistory: async (repo, path, limit) =>
     readFileHistory(repo, requireRepoPath(repo, path), requireInteger(limit, 'history limit', 1, MAX_LOG_LIMIT)),
   getBlame: async (repo, path, rev) => readBlame(repo, requireRepoPath(repo, path), requireNullableHash(rev)),
-  searchCommits: async (repo, mode, query, limit) =>
-    searchCommits(repo, requireSearchMode(mode), requireSearchQuery(query), requireInteger(limit, 'search limit', 1, MAX_SEARCH_RESULTS)),
+  searchCommits: async (repo, mode, query, limit) => {
+    const args = [requireSearchMode(mode), requireSearchQuery(query), requireInteger(limit, 'search limit', 1, MAX_SEARCH_RESULTS)] as const
+    searches.get(repo)?.abort()
+    const controller = new AbortController()
+    searches.set(repo, controller)
+    try {
+      return await searchCommits(repo, ...args, controller.signal)
+    } finally {
+      if (searches.get(repo) === controller) searches.delete(repo)
+    }
+  },
+  cancelSearch: async (repo) => {
+    searches.get(repo)?.abort()
+    searches.delete(repo)
+    return null
+  },
   undoLastAction: async (repo) => done(undoLastAction(repo)),
   getReflog: async (repo, limit) => readReflog(repo, requireInteger(limit, 'reflog limit', 1, MAX_LOG_LIMIT)),
   getCommitDetails: async (repo, hash) => readCommitDetails(repo, requireHash(hash)),

@@ -108,6 +108,22 @@ describe('searchCommits', () => {
     expect(await subjects('message', 'nothing like this')).toEqual([])
   })
 
+  test('stops when aborted', async () => {
+    commitFile(repo, 'a.txt', '1\n', 'one')
+    const controller = new AbortController()
+
+    const search = searchCommits(repo, 'content', 'one', 10, controller.signal)
+    controller.abort()
+
+    await expect(search).rejects.toThrow('Cancelled')
+  })
+
+  test('does not even start when already aborted', async () => {
+    commitFile(repo, 'a.txt', '1\n', 'one')
+
+    await expect(searchCommits(repo, 'message', 'one', 10, AbortSignal.abort())).rejects.toThrow('Cancelled')
+  })
+
   test('refuses an empty query', () => {
     expect(() => searchCommits(repo, 'message', '', 10)).toThrow('Nothing to search for')
   })

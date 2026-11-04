@@ -90,6 +90,18 @@ describe('IPC handler validation', () => {
     expect(git(repo, 'log', '--format=%s').trim().split('\n')).toHaveLength(1)
   })
 
+  test('a newer search for the same repository replaces the one still running', async () => {
+    const first = handlers.searchCommits(repo, 'content', 'a', 10)
+    const second = handlers.searchCommits(repo, 'message', 'a', 10)
+
+    await expect(first).rejects.toThrow('Cancelled')
+    expect(await second).toHaveLength(1)
+  })
+
+  test('cancelling with nothing running is harmless', async () => {
+    expect(await handlers.cancelSearch(repo)).toBeNull()
+  })
+
   test('passes valid input through', async () => {
     const status = await handlers.getStatus(repo)
     expect(status.branch).toBe('main')
