@@ -23,7 +23,7 @@ interface Created {
 const asText = (value: unknown): string | null => (typeof value === 'string' && value !== '' ? value : null)
 
 /** The provider's own explanation, flattened to one line. */
-const explain = async (response: Response): Promise<string> => {
+export const explain = async (response: Response): Promise<string> => {
   const body = (await response.json().catch(() => null)) as Record<string, unknown> | null
   const parts: string[] = []
   const add = (value: unknown): void => {

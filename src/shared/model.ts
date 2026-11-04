@@ -248,6 +248,29 @@ export interface PublishResult {
   webUrl: string
 }
 
+/** An open pull request on GitHub. */
+export interface PullRequest {
+  number: number
+  title: string
+  /** Login of the person who opened it. */
+  author: string
+  /** Branch with the changes. */
+  head: string
+  /** Branch they are meant to be merged into. */
+  base: string
+  /** Address in a browser. */
+  url: string
+  draft: boolean
+}
+
+export interface CreatePullRequestInput {
+  title: string
+  body: string
+  head: string
+  base: string
+  draft: boolean
+}
+
 export interface RewordResult extends MergeOutcome {
   /** The commit was already on a remote branch, so pushing the rewritten history needs a force push. */
   published: boolean
