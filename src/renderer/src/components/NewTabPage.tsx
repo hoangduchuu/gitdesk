@@ -3,6 +3,7 @@ import type { RecentRepo } from '../../../shared/api'
 import { api, errorMessage, unwrap } from '../api'
 import { useT } from '../i18n'
 import { Icon } from '../icons'
+import { CloneDialog } from './CloneDialog'
 import { SettingsDialog } from './SettingsDialog'
 import { Toolbar } from './Toolbar'
 
@@ -11,14 +12,17 @@ interface Props {
   active: boolean
   onOpenDialog: () => void
   onOpenRecent: (path: string) => void
+  /** Clone (folder dialog included) and show the result in this tab. */
+  onClone: (url: string, profileId: string | null) => Promise<void>
 }
 
 /** An empty tab: open a repository, or pick one opened before. */
-export function NewTabPage({ active, onOpenDialog, onOpenRecent }: Props) {
+export function NewTabPage({ active, onOpenDialog, onOpenRecent, onClone }: Props) {
   const t = useT()
   const [recent, setRecent] = useState<RecentRepo[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [cloneOpen, setCloneOpen] = useState(false)
 
   useEffect(() => {
     if (!active) return
@@ -42,6 +46,10 @@ export function NewTabPage({ active, onOpenDialog, onOpenRecent }: Props) {
           <Icon name="open" size={15} />
           {t('toolbar.open')}
         </button>
+        <button type="button" className="ghost" onClick={() => setCloneOpen(true)}>
+          <Icon name="download" size={15} />
+          {t('clone.button')}
+        </button>
         <h2 className="new-tab-heading">{t('tabs.recent')}</h2>
         {error && <p className="error">{error}</p>}
         {recent !== null && recent.length === 0 && <p className="muted">{t('tabs.noRecent')}</p>}
@@ -59,6 +67,7 @@ export function NewTabPage({ active, onOpenDialog, onOpenRecent }: Props) {
           </ul>
         )}
       </section>
+      {cloneOpen && <CloneDialog onClone={onClone} onClose={() => setCloneOpen(false)} />}
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
     </div>
   )

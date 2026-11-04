@@ -8,8 +8,9 @@ import {
   TERMINAL_EVENT_CHANNEL,
   type MenuCommand
 } from '../shared/api'
-import type { RecentRepo, Workspace } from '../shared/api'
+import type { CloneProfile, RecentRepo, Workspace } from '../shared/api'
 import type { RepoInfo, Result } from '../shared/types'
+import { cloneRepository } from './git/clone'
 import { resolveRepo } from './git/repo'
 import { AvatarService } from './avatars'
 import { Credentials } from './credentials'
@@ -164,6 +165,36 @@ function registerIpc(window: BrowserWindow): void {
     toResult(async () => {
       await credentials.remove(requireString(profileId, 'profile id'))
       return null
+    })
+  )
+
+  ipcMain.handle(channelFor('getCloneProfiles'), () =>
+    toResult(async (): Promise<CloneProfile[]> => {
+      const { byProfile } = await credentials.status()
+      return (await profiles.list()).flatMap((profile) => {
+        const auth = byProfile[profile.id]
+        if (!auth) return []
+        const connection = auth.kind === 'github' ? `GitHub (@${auth.login})` : `${auth.host} (${auth.username})`
+        return [{ id: profile.id, name: profile.name, connection }]
+      })
+    })
+  )
+  ipcMain.handle(channelFor('cloneRepository'), (_event, url: unknown, profileId: unknown) =>
+    toResult(async () => {
+      const address = requireString(url, 'repository URL')
+      const id = profileId === null ? null : await requireProfile(profileId)
+      const picked = await dialog.showOpenDialog(window, {
+        title: 'Clone into folder',
+        buttonLabel: 'Clone here',
+        properties: ['openDirectory', 'createDirectory']
+      })
+      const parent = picked.filePaths[0]
+      if (picked.canceled || parent === undefined) return null
+      const env = await credentials.gitEnv(id)
+      const folder = await cloneRepository(address, parent, env, id !== null)
+      const repo = await openRepo(folder)
+      if (id !== null) await profiles.setRepoProfile(repo.path, id)
+      return repo
     })
   )
 

@@ -84,6 +84,10 @@ export function App() {
 
   const openDialog = (targetId: number | null): void =>
     void gitdesk.openRepoDialog().then((result) => show(result, targetId))
+  const cloneInto = async (targetId: number, url: string, profileId: string | null): Promise<void> => {
+    const repo = unwrap(await gitdesk.cloneRepository(url, profileId))
+    if (repo !== null) setState((current) => openRepoInTabs(current ?? initialTabs(), repo, targetId))
+  }
   const openRecent = (targetId: number, path: string): void =>
     void gitdesk.openRecentRepo(path).then((result) => show(result, targetId))
   const switchRepo = (tabId: number, path: string): void =>
@@ -120,6 +124,7 @@ export function App() {
                 active={active}
                 onOpenDialog={() => openDialog(tab.id)}
                 onOpenRecent={(path) => openRecent(tab.id, path)}
+                onClone={(url, profileId) => cloneInto(tab.id, url, profileId)}
               />
             )}
           </div>

@@ -43,9 +43,23 @@ export interface SelectionRequest {
   expectedDiff: string
 }
 
+export interface CloneProfile {
+  id: string
+  name: string
+  /** Where the profile is connected, e.g. `GitHub (@octocat)` or `gitlab.com (user)`. */
+  connection: string
+}
+
 /** API exposed to the renderer through the preload bridge. Every call takes the repo path first. */
 export interface GitDeskApi {
   openRepoDialog(): Async<RepoInfo | null>
+  /** Profiles that can authenticate a clone, i.e. those connected to a provider. */
+  getCloneProfiles(): Async<CloneProfile[]>
+  /**
+   * Ask for a destination folder, clone `url` into it and open the result (null if the folder
+   * dialog is cancelled). A private repository needs `profileId`, a profile connected to its host.
+   */
+  cloneRepository(url: string, profileId: string | null): Async<RepoInfo | null>
   /** Tabs restored from the last session, plus any repository passed with --repo=<path>. */
   getWorkspace(): Async<Workspace>
   getRecentRepos(): Async<RecentRepo[]>
@@ -162,6 +176,8 @@ export interface GitDeskApi {
 /** Methods that do not act on an already opened repository. */
 export const APP_METHODS = [
   'openRepoDialog',
+  'getCloneProfiles',
+  'cloneRepository',
   'getWorkspace',
   'getRecentRepos',
   'openRecentRepo',
