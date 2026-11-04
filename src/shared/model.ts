@@ -1,3 +1,5 @@
+import type { Commit } from './types'
+
 export type ChangeKind =
   | 'added'
   | 'modified'
@@ -55,6 +57,40 @@ export interface Branch {
   behind: number
   /** The upstream branch no longer exists on the remote. */
   upstreamGone: boolean
+}
+
+export interface ReflogEntry {
+  /** Commit HEAD pointed at after this action. */
+  hash: string
+  /** Position selector such as `HEAD@{3}`. */
+  selector: string
+  /** What happened, e.g. `commit: add b` or `reset: moving to HEAD~1`. */
+  action: string
+  /** Unix seconds */
+  time: number
+}
+
+/** One commit in a file's history, with the name the file had in it. */
+export interface FileHistoryEntry {
+  commit: Commit
+  path: string
+}
+
+export interface BlameLine {
+  /** 1-based line number in the blamed file. */
+  line: number
+  /** Commit that last changed the line; all zeros for uncommitted changes. */
+  hash: string
+  author: string
+  /** Unix seconds */
+  time: number
+  /** First line of that commit's message. */
+  summary: string
+  /** The file's path in that commit (differs from the current path after a rename). */
+  path: string
+  /** The oldest commit shown: the line may be older than the history git was asked about. */
+  boundary: boolean
+  text: string
 }
 
 export interface Tag {

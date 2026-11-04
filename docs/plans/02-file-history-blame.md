@@ -9,6 +9,9 @@ From any file (in Changes, in a commit's file list, or in a diff) open its histo
 - UI: new `center` kind in `Workspace.tsx` (alongside `diff` and `conflict`): `{ kind: 'history' | 'blame', path, rev }`. History view = commit list for the file; click a row -> existing `DiffView` with `{kind:'commit', hash, path}`. Blame view = file lines with a gutter (short hash, author, age); click gutter -> select that commit in the graph via `revealCommit`. Syntax highlighting: reuse `highlight.ts`.
 - Entry points: file context menus in `FileList.tsx` / commit file list; "File history" and "Blame".
 
+## Status
+Plan complete (steps 1-6). Entry points: right-click a file in the Changes or commit panel; File history / Blame buttons in the diff header (not for stash or untracked files); "Blame at this commit" from the history view. Blame has syntax highlighting, click-to-show-in-graph and a 5000-line cap with a notice. History follows renames and returns the file's name at each commit so pre-rename diffs open correctly; blame uses `-M -C`.
+
 ## Steps
 1. **Blame parser + tests** (`src/shared/blame-parse.ts`, `tests/blame-parse.test.ts`): multi-line same-commit groups, boundary commits (`^`), renamed file (`filename` header), uncommitted lines (all-zero hash).
 2. **Git layer + tests.** `src/main/git/blame.ts` (`readBlame(repo, path, rev|null)`) and `readFileHistory` in `log.ts`. Tests with real repos: rename across history, blame after two authors' edits (use `git -c user.name`), binary file -> clear error.

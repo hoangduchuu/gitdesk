@@ -20,6 +20,10 @@ import { PublishDialog } from './components/PublishDialog'
 import { ProfilesDialog } from './components/ProfilesDialog'
 import { PromptDialog, type PromptRequest } from './components/PromptDialog'
 import { RebaseView } from './components/RebaseView'
+import { ReflogView } from './components/ReflogView'
+import { FileHistoryView } from './components/FileHistoryView'
+import { BlameView } from './components/BlameView'
+import { Icon } from './icons'
 import { SettingsDialog } from './components/SettingsDialog'
 import { Sidebar } from './components/Sidebar'
 import { StashPanel } from './components/StashPanel'
@@ -39,6 +43,9 @@ type Center =
   | { kind: 'diff'; target: DiffTarget; title: string; key: string }
   | { kind: 'conflict'; path: string }
   | { kind: 'rebase'; base: string }
+  | { kind: 'reflog' }
+  | { kind: 'history'; path: string }
+  | { kind: 'blame'; path: string; rev: string | null }
 
 interface Props {
   repo: RepoInfo
@@ -118,6 +125,8 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
     choose: setChoice,
     confirm,
     openRebase: (base) => setCenter({ kind: 'rebase', base }),
+    openFileHistory: (filePath) => setCenter({ kind: 'history', path: filePath }),
+    openBlame: (filePath) => setCenter({ kind: 'blame', path: filePath, rev: null }),
     openGitflowInit: setGitflowInit,
     t,
     tCount
@@ -276,6 +285,8 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
     }
   }
 
+  const fileMenu = (filePath: string, event: MouseEvent): void => openMenu(actions.fileMenu(filePath), event)
+
   const openDiff = (target: DiffTarget, title: string, key: string): void =>
     setCenter({ kind: 'diff', target, title, key })
 
@@ -323,6 +334,8 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
         onGitflow={gitflowMenu}
         onStash={actions.promptStash}
         onPop={() => data?.stashes[0] && actions.popStash(data.stashes[0])}
+        reflogOpen={center.kind === 'reflog'}
+        onReflog={() => (center.kind === 'reflog' ? closeCenter() : setCenter({ kind: 'reflog' }))}
         onProfiles={() => setProfilesOpen(true)}
         terminalOpen={terminal === 'shown'}
         onTerminal={toggleTerminal}
@@ -402,6 +415,18 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
               target={center.target}
               title={center.title}
               staging={staging(center.target)}
+              headerActions={
+                center.target.kind === 'stash' || (center.target.kind === 'working' && center.target.untracked) ? undefined : (
+                  <>
+                    <button type="button" className="ghost" onClick={() => setCenter({ kind: 'history', path: center.target.path })}>
+                      <Icon name="reflog" size={14} />{t('menu.fileHistory')}
+                    </button>
+                    <button type="button" className="ghost" onClick={() => setCenter({ kind: 'blame', path: center.target.path, rev: null })}>
+                      <Icon name="user" size={14} />{t('menu.blame')}
+                    </button>
+                  </>
+                )
+              }
               onClose={closeCenter}
             />
           )}
@@ -413,6 +438,36 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
               controller={controller}
               others={(status?.conflicted ?? []).map((file) => file.path).filter((file) => file !== center.path)}
               onOpenNext={(file) => setCenter({ kind: 'conflict', path: file })}
+              onClose={closeCenter}
+            />
+          )}
+          {center.kind === 'blame' && (
+            <BlameView
+              key={`${center.path}@${center.rev ?? ''}`}
+              repo={path}
+              path={center.path}
+              rev={center.rev}
+              reloadKey={data?.commits}
+              onReveal={revealCommit}
+              onClose={closeCenter}
+            />
+          )}
+          {center.kind === 'history' && (
+            <FileHistoryView
+              key={center.path}
+              repo={path}
+              path={center.path}
+              reloadKey={data?.commits}
+              onReveal={revealCommit}
+              onBlame={(filePath, rev) => setCenter({ kind: 'blame', path: filePath, rev })}
+              onClose={closeCenter}
+            />
+          )}
+          {center.kind === 'reflog' && (
+            <ReflogView
+              repo={path}
+              reloadKey={data?.commits}
+              onMenu={(entry, event) => openMenu(actions.reflogMenu(entry), event)}
               onClose={closeCenter}
             />
           )}
@@ -448,6 +503,7 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
               controller={controller}
               selectedKey={centerKey}
               onOpenDiff={openDiff}
+              onFileMenu={fileMenu}
               onOpenConflict={(file) => setCenter({ kind: 'conflict', path: file })}
               profileVersion={profileVersion}
               onManageProfiles={() => setProfilesOpen(true)}
@@ -459,6 +515,7 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
               commit={selectedCommit}
               selectedKey={centerKey}
               onOpenDiff={openDiff}
+              onFileMenu={fileMenu}
               onPrompt={setPrompt}
               onCreateBranch={(name, hash) => actions.createBranch(name, hash)}
             />

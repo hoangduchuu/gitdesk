@@ -24,6 +24,8 @@ interface Props {
   onGitflow: (event: MouseEvent) => void
   onStash: () => void
   onPop: () => void
+  reflogOpen: boolean
+  onReflog: () => void
   onProfiles: () => void
   terminalOpen: boolean
   onTerminal: () => void
@@ -79,7 +81,7 @@ function useMinimumVisible(value: string | null): string | null {
 export function Toolbar(props: Props) {
   const t = useT()
   const { repo, status, busy, stashCount, onOpen, onFetch, onPull, onPush, onPushMenu, onBranch, onGitflow, onStash, onPop, onProfiles } = props
-  const { terminalOpen, onTerminal, onSettings, onRepoMenu, onBranchMenu } = props
+  const { reflogOpen, onReflog, terminalOpen, onTerminal, onSettings, onRepoMenu, onBranchMenu } = props
   const running = useMinimumVisible(busy)
   const disabled = repo === null || running !== null
   const dirty = status !== null && status.staged.length + status.unstaged.length > 0
@@ -130,6 +132,7 @@ export function Toolbar(props: Props) {
         <Tool icon="gitflow" label={t('gitflow.title')} onClick={onGitflow} disabled={disabled} />
         <Tool icon="stash" label={t('toolbar.stash')} onClick={onStash} disabled={disabled || !dirty} loading={running === t('action.stashing')} />
         <Tool icon="pop" label={t('toolbar.pop')} onClick={onPop} disabled={disabled || stashCount === 0} loading={running === t('action.poppingStash')} />
+        <Tool icon="reflog" label={t('toolbar.reflog')} onClick={onReflog} disabled={repo === null} active={reflogOpen} title={t('reflog.hint')} />
         <span className="toolbar-separator" />
         <Tool
           icon="terminal"

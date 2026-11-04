@@ -22,6 +22,12 @@ afterEach(() => {
 describe('IPC handler validation', () => {
   test.each([
     ['getLog with a zero limit', () => handlers.getLog(repo, 0), 'Invalid log limit'],
+    ['file history outside the repo', () => handlers.getFileHistory(repo, '../x', 10), 'outside the repository'],
+    ['file history with an absolute path', () => handlers.getFileHistory(repo, '/etc/hosts', 10), 'Invalid repository path'],
+    ['file history with a zero limit', () => handlers.getFileHistory(repo, 'a.txt', 0), 'Invalid history limit'],
+    ['blame outside the repo', () => handlers.getBlame(repo, '../x', null), 'outside the repository'],
+    ['blame at a revision that is not a hash', () => handlers.getBlame(repo, 'a.txt', '--contents'), 'Invalid commit hash'],
+    ['getReflog with a zero limit', () => handlers.getReflog(repo, 0), 'Invalid reflog limit'],
     ['stage outside the repo', () => handlers.stage(repo, ['../escape.txt']), 'outside the repository'],
     ['stage with an absolute path', () => handlers.stage(repo, ['/etc/hosts']), 'Invalid repository path'],
     ['stage with no paths', () => handlers.stage(repo, []), 'Invalid path list'],
@@ -55,6 +61,15 @@ describe('IPC handler validation', () => {
 
     expect(git(repo, 'log', '-1', '--format=%an <%ae>').trim()).toBe('Work Me <me@work.com>')
     expect(await handlers.getProfiles(repo)).toMatchObject({ selectedId: profile.id, profiles: [profile] })
+  })
+
+  test('serves history and blame for a file inside the repo', async () => {
+    const history = await handlers.getFileHistory(repo, 'a.txt', 10)
+    const blame = await handlers.getBlame(repo, 'a.txt', null)
+
+    expect(history).toHaveLength(1)
+    expect(history[0]!.path).toBe('a.txt')
+    expect(blame.map((line) => line.text)).toEqual(['a'])
   })
 
   test('passes valid input through', async () => {

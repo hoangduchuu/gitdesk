@@ -8,6 +8,9 @@ Let the user see where HEAD (and each branch) has been, and recover from a bad r
 - UI: a "Reflog" panel reachable from the toolbar (next to Stash/Pop) as a list; each row has context-menu actions: **Checkout** (detached), **Create branch here**, **Reset current branch to here** (reuse existing reset confirm flow), **Copy SHA**. Reuse `actions.ts` where possible (`promptCreateBranch`, `reset`, `checkoutCommit` already take a hash).
 - "Undo last action" = convenience button resetting `--keep`... decision deferred: first ship the list, then add undo as step 4 only if the list proves clunky (undo semantics for rebase/merge are subtle).
 
+## Status
+Steps 1-4 done (git layer, API, view, recovery check). Step 5 (undo button) not started.
+
 ## Steps
 1. **Git layer + tests.** `src/main/git/reflog.ts` exporting `readReflog(repo, limit)`; parse with `\x1f` like `log.ts`. Types `ReflogEntry` in `src/shared/model.ts`. Tests: after commit/reset/checkout the expected entries and order; empty repo (unborn HEAD) returns `[]`.
 2. **API.** `getReflog(repo, limit)` in `api.ts` + `REPO_METHODS`, handler with `requireInteger` bounds, handler test.
