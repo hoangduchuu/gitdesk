@@ -56,10 +56,12 @@ interface Props {
   onOpen: () => void
   /** Show another repository in this tab. */
   onSwitchRepo: (path: string) => void
+  /** Open another working tree of this repository in a new tab. */
+  onOpenWorktree: (path: string) => void
 }
 
 /** One repository's window content: toolbar, sidebar, graph, details and terminal. */
-export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
+export function Workspace({ repo, active, onOpen, onSwitchRepo, onOpenWorktree }: Props) {
   const t = useT()
   const confirm = useConfirm()
   const tCount = useTCount()
@@ -133,6 +135,7 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
     openBlame: (filePath) => setCenter({ kind: 'blame', path: filePath, rev: null }),
     openPullRequestDialog: (head) => setPrDialog({ head }),
     canPullRequest: githubRemoteName(data?.remotes.remotes ?? []) !== null,
+    openWorktree: onOpenWorktree,
     openGitflowInit: setGitflowInit,
     t,
     tCount
@@ -400,6 +403,11 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
             prVersion={prVersion}
             onPullRequestMenu={(pr, event) => openMenu(actions.pullRequestMenu(pr), event)}
             onCreatePullRequest={() => status?.branch && setPrDialog({ head: status.branch })}
+            worktrees={data.worktrees}
+            currentPath={path}
+            onWorktreeMenu={(worktree, event) => openMenu(actions.worktreeMenu(worktree), event)}
+            onOpenWorktree={(worktree) => onOpenWorktree(worktree.path)}
+            onAddWorktree={actions.promptNewWorktree}
           />
         ) : (
           <nav className="sidebar" />
@@ -561,7 +569,8 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
         <TerminalPanel key={path} repo={path} visible={terminal === 'shown' && active} onClose={() => setTerminal('hidden')} />
       )}
 
-      {prompt && <PromptDialog request={prompt} onClose={() => setPrompt(null)} />}
+      {/* Keyed: a prompt opened from another prompt's submit (new worktree, add remote) must start with its own text. */}
+      {prompt && <PromptDialog key={`${prompt.title}|${prompt.label}`} request={prompt} onClose={() => setPrompt(null)} />}
       {choice && <ChoiceDialog request={choice} onClose={() => setChoice(null)} />}
       {menu && <ContextMenu request={menu} onClose={closeMenu} />}
       {publishOpen && data && (

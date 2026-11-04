@@ -78,6 +78,20 @@ export interface FileHistoryEntry {
   path: string
 }
 
+/** One checked-out working tree of a repository (`git worktree list`). */
+export interface Worktree {
+  path: string
+  /** Commit checked out there; empty for a bare repository. */
+  head: string
+  /** Short branch name, or null when HEAD is detached. */
+  branch: string | null
+  /** The original working tree, the one that holds the `.git` folder. It cannot be removed. */
+  main: boolean
+  locked: boolean
+  /** Its folder is gone: `git worktree prune` would forget it. */
+  prunable: boolean
+}
+
 export interface BlameLine {
   /** 1-based line number in the blamed file. */
   line: number

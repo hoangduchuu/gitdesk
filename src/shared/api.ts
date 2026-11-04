@@ -31,7 +31,8 @@ import type {
   Stash,
   StashFile,
   Tag,
-  WorkingTreeStatus
+  WorkingTreeStatus,
+  Worktree
 } from './model'
 import type { Commit, RepoInfo, Result } from './types'
 import type { FileSides } from './viewers'
@@ -76,6 +77,8 @@ export interface GitDeskApi {
   getRecentRepos(): Async<RecentRepo[]>
   /** Reopen a repository from the recent list or saved tabs, without a dialog. */
   openRecentRepo(path: string): Async<RepoInfo>
+  /** Open a worktree of an opened repository as a repository of its own. */
+  openWorktree(repo: string, path: string): Async<RepoInfo>
   /** Remember the open tabs (repository paths, left to right) and the selected one. */
   saveTabs(paths: string[], active: number): Async<null>
 
@@ -101,6 +104,14 @@ export interface GitDeskApi {
   getStatus(repo: string): Async<WorkingTreeStatus>
   getBranches(repo: string): Async<Branch[]>
   getStashes(repo: string): Async<Stash[]>
+  /** The repository's working trees: the main one and the ones added with `git worktree add`. */
+  getWorktrees(repo: string): Async<Worktree[]>
+  /** Check out a branch in a new folder; `create` makes `branch` new from the current HEAD. */
+  addWorktree(repo: string, path: string, branch: string, create: boolean): Async<null>
+  /** Delete a linked worktree's folder; local changes there are lost only with `force`. */
+  removeWorktree(repo: string, path: string, force: boolean): Async<null>
+  /** Forget worktrees whose folders are gone. */
+  pruneWorktrees(repo: string): Async<null>
   /** Where HEAD has been, newest first: the way back to commits no branch points at any more. */
   getReflog(repo: string, limit: number): Async<ReflogEntry[]>
   /** Take back the newest commit, reset or branch switch (see `undoKindOf`); refuses anything else. */
@@ -216,6 +227,7 @@ export const APP_METHODS = [
   'getWorkspace',
   'getRecentRepos',
   'openRecentRepo',
+  'openWorktree',
   'saveTabs',
   'getProfileAuth',
   'githubLoginStart',
@@ -267,6 +279,10 @@ export const REPO_METHODS = [
   'resetTo',
   'checkoutCommit',
   'getReflog',
+  'getWorktrees',
+  'addWorktree',
+  'removeWorktree',
+  'pruneWorktrees',
   'getPullRequests',
   'createPullRequest',
   'checkoutPullRequest',

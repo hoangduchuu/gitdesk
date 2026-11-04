@@ -2,6 +2,9 @@
 
 Grep found no mentions of either in `src/`. (`src/main/git/worktree.ts` is the *working tree* status/stage code, not `git worktree`.) Do worktrees first; they are simpler and more commonly used with feature branches.
 
+## Status
+A. Worktrees: done (parser, git layer with path/branch checks, API, sidebar section, "Worktree for this branch" in the branch menu, open in a new tab, remove with force confirm, prune). Also fixed: a prompt opened from another prompt's submit (new worktree, add remote) now starts with its own text instead of keeping the previous one. B. Submodules: not started.
+
 ## A. Worktrees
 - Data: `git worktree list --porcelain` -> `{ path, head, branch|null, detached, locked, prunable }` (pure parser in `src/shared/`).
 - Actions: add (`git worktree add [-b new] <path> <branch>`), remove (`remove [--force]`), prune, open in a new tab (tabs already exist: `openRecentRepo(path)`).

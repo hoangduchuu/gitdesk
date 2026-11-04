@@ -128,6 +128,7 @@ export function App() {
                 active={active}
                 onOpen={() => openDialog(null)}
                 onSwitchRepo={(path) => switchRepo(tab.id, path)}
+                onOpenWorktree={(path) => void gitdesk.openWorktree(tab.repo!.path, path).then((result) => show(result, null))}
               />
             ) : (
               <NewTabPage

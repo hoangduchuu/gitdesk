@@ -36,6 +36,10 @@ describe('IPC handler validation', () => {
     ['pull request with a non-boolean draft flag', () => handlers.createPullRequest(repo, { title: 't', body: '', head: 'a', base: 'main', draft: 'yes' }), 'Invalid draft flag'],
     ['pull requests without a github remote', () => handlers.getPullRequests(repo), 'need a remote on github.com'],
     ['checking out a pull request without a github remote', () => handlers.checkoutPullRequest(repo, 3), 'need a remote on github.com'],
+    ['worktree at a relative path', () => handlers.addWorktree(repo, 'relative/dir', 'x', true), 'Invalid folder path'],
+    ['worktree with a non-boolean create flag', () => handlers.addWorktree(repo, '/tmp/x', 'x', 'yes'), 'Invalid create flag'],
+    ['removing a worktree at a relative path', () => handlers.removeWorktree(repo, '../x', false), 'Invalid folder path'],
+    ['removing a folder that is not a worktree', () => handlers.removeWorktree(repo, '/tmp', false), 'not a worktree'],
     ['getReflog with a zero limit', () => handlers.getReflog(repo, 0), 'Invalid reflog limit'],
     ['stage outside the repo', () => handlers.stage(repo, ['../escape.txt']), 'outside the repository'],
     ['stage with an absolute path', () => handlers.stage(repo, ['/etc/hosts']), 'Invalid repository path'],
@@ -105,6 +109,16 @@ describe('IPC handler validation', () => {
 
   test('cancelling with nothing running is harmless', async () => {
     expect(await handlers.cancelSearch(repo)).toBeNull()
+  })
+
+  test('adds, lists and removes a worktree', async () => {
+    const path = join(settings, 'wt')
+
+    await handlers.addWorktree(repo, path, 'wt-branch', true)
+    expect((await handlers.getWorktrees(repo)).map((worktree) => worktree.branch)).toEqual(['main', 'wt-branch'])
+
+    await handlers.removeWorktree(repo, path, false)
+    expect(await handlers.getWorktrees(repo)).toHaveLength(1)
   })
 
   test('passes valid input through', async () => {

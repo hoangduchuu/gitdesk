@@ -16,6 +16,7 @@ import type {
   RebaseStep,
   SearchMode
 } from '../shared/model'
+import { isAbsolute } from 'node:path'
 import { insideRepo } from './git/paths'
 
 // Everything arriving over IPC is untrusted: check shapes before it reaches git.
@@ -76,6 +77,12 @@ export const requireRepoPath = (repo: string, value: unknown): string => {
   const path = requireString(value, 'path')
   insideRepo(repo, path)
   return path
+}
+
+/** A full folder path chosen by the user (outside the repository, so not checked against it). */
+export const requireAbsolutePath = (value: unknown): string => {
+  const path = requireString(value, 'folder path')
+  return isAbsolute(path) && path.length <= 4096 && !path.includes('\0') ? path : fail('folder path')
 }
 
 export const requirePaths = (repo: string, value: unknown): string[] => {
