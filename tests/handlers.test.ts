@@ -27,6 +27,10 @@ describe('IPC handler validation', () => {
     ['file history with a zero limit', () => handlers.getFileHistory(repo, 'a.txt', 0), 'Invalid history limit'],
     ['blame outside the repo', () => handlers.getBlame(repo, '../x', null), 'outside the repository'],
     ['blame at a revision that is not a hash', () => handlers.getBlame(repo, 'a.txt', '--contents'), 'Invalid commit hash'],
+    ['search with an unknown mode', () => handlers.searchCommits(repo, 'regex', 'a', 10), 'Invalid search mode'],
+    ['search with empty text', () => handlers.searchCommits(repo, 'message', '  ', 10), 'Invalid search text'],
+    ['search with a huge query', () => handlers.searchCommits(repo, 'content', 'x'.repeat(501), 10), 'Invalid search text'],
+    ['search with a zero limit', () => handlers.searchCommits(repo, 'message', 'a', 0), 'Invalid search limit'],
     ['getReflog with a zero limit', () => handlers.getReflog(repo, 0), 'Invalid reflog limit'],
     ['stage outside the repo', () => handlers.stage(repo, ['../escape.txt']), 'outside the repository'],
     ['stage with an absolute path', () => handlers.stage(repo, ['/etc/hosts']), 'Invalid repository path'],
@@ -70,6 +74,12 @@ describe('IPC handler validation', () => {
     expect(history).toHaveLength(1)
     expect(history[0]!.path).toBe('a.txt')
     expect(blame.map((line) => line.text)).toEqual(['a'])
+  })
+
+  test('searches the history with a valid mode and text', async () => {
+    const found = await handlers.searchCommits(repo, 'path', 'a.txt', 10)
+
+    expect(found).toHaveLength(1)
   })
 
   test('passes valid input through', async () => {

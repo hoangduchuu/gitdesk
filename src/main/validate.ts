@@ -11,7 +11,8 @@ import type {
   ProfileInput,
   PublishInput,
   RebaseAction,
-  RebaseStep
+  RebaseStep,
+  SearchMode
 } from '../shared/model'
 import { insideRepo } from './git/paths'
 
@@ -31,6 +32,16 @@ export const requireInteger = (value: unknown, what: string, min: number, max: n
   typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max ? value : fail(what)
 
 const HASH = /^[0-9a-f]{7,64}$/
+const SEARCH_MODES: readonly SearchMode[] = ['message', 'author', 'content', 'path']
+export const requireSearchMode = (value: unknown): SearchMode =>
+  SEARCH_MODES.includes(value as SearchMode) ? (value as SearchMode) : fail('search mode')
+
+export const MAX_SEARCH_QUERY = 500
+export const requireSearchQuery = (value: unknown): string => {
+  const query = requireString(value, 'search text')
+  return query.trim() === '' || query.length > MAX_SEARCH_QUERY || query.includes('\0') ? fail('search text') : query
+}
+
 export const requireHash = (value: unknown): string => {
   const hash = requireString(value, 'commit hash')
   return HASH.test(hash) ? hash : fail('commit hash')

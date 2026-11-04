@@ -70,6 +70,8 @@ export interface ReflogEntry {
   time: number
 }
 
+export type SearchMode = 'message' | 'author' | 'content' | 'path'
+
 /** One commit in a file's history, with the name the file had in it. */
 export interface FileHistoryEntry {
   commit: Commit

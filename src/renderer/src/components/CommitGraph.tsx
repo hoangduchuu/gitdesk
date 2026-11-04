@@ -2,7 +2,9 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import type { GraphNode } from '../../../shared/graph-nodes'
 import { ageMarkers } from '../../../shared/format'
 import { groupRefs, type RefLabel } from '../../../shared/refs'
-import type { GraphRow } from '../../../shared/types'
+import type { SearchMode } from '../../../shared/model'
+import type { Commit, GraphRow } from '../../../shared/types'
+import { api, errorMessage, unwrap } from '../api'
 import { useBranchDnd, type BranchDrop } from '../branchDrag'
 import { useGraphAvatars, type GraphPerson } from '../hooks/useGraphAvatars'
 import { LINE_WIDTH_PX, useSettings } from '../hooks/useSettings'
@@ -14,6 +16,14 @@ import { dashedLanesPerRow, GraphCell, LANE_WIDTH, ROW_HEIGHT } from './GraphCel
 const OVERSCAN_ROWS = 10
 const MIN_GRAPH_LANES = 3
 const MAX_GRAPH_LANES = 16
+const SEARCH_DEBOUNCE_MS = 400
+const SEARCH_RESULT_LIMIT = 300
+
+/** `local` filters the commits already loaded; the rest ask git to search the whole history. */
+type SearchScope = 'local' | SearchMode
+const SEARCH_SCOPES: readonly SearchScope[] = ['local', 'message', 'author', 'content', 'path']
+
+type Remote = { kind: 'idle' } | { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; commits: Commit[] }
 
 interface Props {
   /** The repository, to look up the authors' pictures. */
@@ -28,12 +38,14 @@ interface Props {
   onContextMenu: (node: GraphNode, event: MouseEvent) => void
   /** A branch label was dropped on another: ask what to do (merge, rebase). */
   onBranchDrop: BranchDrop
+  /** A search result older than the loaded history was chosen: show that commit's details. */
+  onOpenOlder: (commit: Commit) => void
   /** Changes each time the search bar should open and take focus (Cmd/Ctrl+F). */
   searchTick: number
 }
 
 /** Virtualised list: only rows near the viewport are rendered, so large histories stay fast. */
-export function CommitGraph({ repo, rows, selectedHash, revealHash, picked, onSelect, onContextMenu, onBranchDrop, searchTick }: Props) {
+export function CommitGraph({ repo, rows, selectedHash, revealHash, picked, onSelect, onContextMenu, onBranchDrop, onOpenOlder, searchTick }: Props) {
   const t = useT()
   const viewport = useRef<HTMLDivElement>(null)
   const [scrollTop, setScrollTop] = useState(0)
@@ -59,6 +71,8 @@ export function CommitGraph({ repo, rows, selectedHash, revealHash, picked, onSe
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [hit, setHit] = useState(0)
+  const [scope, setScope] = useState<SearchScope>('local')
+  const [remote, setRemote] = useState<Remote>({ kind: 'idle' })
   const searchInput = useRef<HTMLInputElement>(null)
   useEffect(() => {
     if (searchTick === 0) return
@@ -66,17 +80,45 @@ export function CommitGraph({ repo, rows, selectedHash, revealHash, picked, onSe
     searchInput.current?.focus()
     searchInput.current?.select()
   }, [searchTick])
+  // Whole-history searches run in git, after a pause in typing; an answer that arrives late for old text is dropped.
+  useEffect(() => {
+    if (!searchOpen || scope === 'local' || query.trim() === '') {
+      setRemote({ kind: 'idle' })
+      return
+    }
+    setRemote({ kind: 'loading' })
+    let stale = false
+    const timer = window.setTimeout(() => {
+      api()
+        .searchCommits(repo, scope, query, SEARCH_RESULT_LIMIT)
+        .then(unwrap)
+        .then((commits) => !stale && setRemote({ kind: 'ready', commits }))
+        .catch((error) => !stale && setRemote({ kind: 'error', message: errorMessage(error) }))
+    }, SEARCH_DEBOUNCE_MS)
+    return () => {
+      stale = true
+      window.clearTimeout(timer)
+    }
+  }, [repo, scope, query, searchOpen])
+  const found = useMemo(() => new Set(remote.kind === 'ready' ? remote.commits.map((commit) => commit.hash) : []), [remote])
   const matches = useMemo(() => {
     const needle = query.trim().toLowerCase()
     if (!searchOpen || needle === '') return [] as number[]
-    const found: number[] = []
+    const result: number[] = []
     rows.forEach((row, index) => {
-      if (searchText(row.node).includes(needle)) found.push(index)
+      if (scope === 'local' ? searchText(row.node).includes(needle) : row.node.kind === 'commit' && found.has(row.node.hash)) result.push(index)
     })
-    return found
-  }, [rows, query, searchOpen])
+    return result
+  }, [rows, query, searchOpen, scope, found])
+  /** Results git found that are older than what the graph has loaded. */
+  const older = useMemo(() => {
+    if (remote.kind !== 'ready') return [] as Commit[]
+    const loaded = new Set(rows.map((row) => row.node.hash))
+    return remote.commits.filter((commit) => !loaded.has(commit.hash))
+  }, [remote, rows])
+  const unloaded = older.length
   const matchSet = useMemo(() => new Set(matches), [matches])
-  useEffect(() => setHit(0), [query])
+  useEffect(() => setHit(0), [query, scope, remote])
   const goToHit = (next: number): void => {
     if (matches.length === 0) return
     const wrapped = (next + matches.length) % matches.length
@@ -88,6 +130,7 @@ export function CommitGraph({ repo, rows, selectedHash, revealHash, picked, onSe
   const closeSearch = (): void => {
     setSearchOpen(false)
     setQuery('')
+    setScope('local')
     viewport.current?.focus()
   }
 
@@ -161,12 +204,19 @@ export function CommitGraph({ repo, rows, selectedHash, revealHash, picked, onSe
       </div>
       {searchOpen && (
         <div className="graph-search" role="search">
+          <select value={scope} onChange={(event) => setScope(event.target.value as SearchScope)} aria-label={t('graph.searchScope')}>
+            {SEARCH_SCOPES.map((value) => (
+              <option key={value} value={value}>
+                {t(`graph.scope.${value}`)}
+              </option>
+            ))}
+          </select>
           <input
             ref={searchInput}
             type="search"
             value={query}
-            placeholder={t('graph.search')}
-            aria-label={t('graph.search')}
+            placeholder={t(`graph.placeholder.${scope}`)}
+            aria-label={t(`graph.placeholder.${scope}`)}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Escape') closeSearch()
@@ -174,11 +224,38 @@ export function CommitGraph({ repo, rows, selectedHash, revealHash, picked, onSe
             }}
           />
           <span className="muted" aria-live="polite">
-            {query.trim() === '' ? '' : matches.length === 0 ? t('graph.noMatches') : `${hit + 1}/${matches.length}`}
+            {query.trim() === ''
+              ? ''
+              : remote.kind === 'loading'
+                ? t('graph.searching')
+                : remote.kind === 'error'
+                  ? remote.message
+                  : matches.length === 0
+                    ? unloaded === 0
+                      ? t('graph.noMatches')
+                      : ''
+                    : `${hit + 1}/${matches.length}`}
+            {unloaded > 0 && ` ${t('graph.olderMatches', { count: unloaded })}`}
           </span>
           <button type="button" className="ghost" onClick={() => goToHit(hit - 1)} disabled={matches.length === 0} aria-label={t('graph.prevMatch')}>↑</button>
           <button type="button" className="ghost" onClick={() => goToHit(hit + 1)} disabled={matches.length === 0} aria-label={t('graph.nextMatch')}>↓</button>
           <button type="button" className="ghost" onClick={closeSearch} aria-label={t('common.close')}>✕</button>
+        </div>
+      )}
+      {older.length > 0 && (
+        <div className="graph-older" role="region" aria-label={t('graph.olderTitle')}>
+          <p className="muted">{t('graph.olderTitle')}</p>
+          <ul>
+            {older.map((commit) => (
+              <li key={commit.hash}>
+                <button type="button" className={`link${commit.hash === selectedHash ? ' selected' : ''}`} onClick={() => onOpenOlder(commit)}>
+                  <span className="mono">{commit.hash.slice(0, 7)}</span>
+                  <span className="graph-older-subject">{commit.subject}</span>
+                  <span className="muted">{commit.authorName}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
       <div
