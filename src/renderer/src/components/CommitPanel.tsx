@@ -69,6 +69,13 @@ export function CommitPanel({ repo, commit, selectedKey, onOpenDiff, onFileMenu,
         {commit.body && <p className="commit-body">{commit.body}</p>}
       </section>
 
+      {details && details.signature !== 'none' && (
+        <p className={`commit-signature signature-${details.signature}`} role="status">
+          <Icon name={details.signature === 'bad' ? 'abort' : 'save'} size={14} />
+          {t(`commit.signature.${details.signature}`)}
+        </p>
+      )}
+
       <section className="commit-people">
         <Person
           role={sameCommitter ? undefined : t('commit.author')}

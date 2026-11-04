@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import type { Profile, ProfileInput } from '../shared/model'
+import type { Profile, ProfileInput, ProfileSigning } from '../shared/model'
 
 interface Settings {
   profiles: Profile[]
@@ -13,17 +13,38 @@ const EMPTY: Settings = { profiles: [], repoProfiles: {} }
 const CONTROL_CHARS = /[\u0000-\u001f\u007f]/
 const EMAIL = /^[^\s@<>]+@[^\s@<>]+$/
 
+const MAX_KEY_LENGTH = 2048
+
+/** A signing setup, or null when it is absent or unusable (a hand-edited file must not reach git). */
+const signingOf = (value: unknown): ProfileSigning | null => {
+  const signing = value as Partial<ProfileSigning> | null | undefined
+  if (!signing || typeof signing !== 'object') return null
+  if (signing.format !== 'ssh' && signing.format !== 'openpgp') return null
+  const key = typeof signing.key === 'string' ? signing.key.trim() : ''
+  if (key === '' || key.length > MAX_KEY_LENGTH || CONTROL_CHARS.test(key) || key.startsWith('-')) return null
+  return { format: signing.format, key }
+}
+
 const validate = (input: ProfileInput): Omit<Profile, 'id'> => {
   const name = input.name.trim()
   const email = input.email.trim()
   if (name === '' || CONTROL_CHARS.test(name) || /[<>]/.test(name)) throw new Error('Invalid profile name')
   if (!EMAIL.test(email) || CONTROL_CHARS.test(email)) throw new Error('Invalid profile email')
-  return { name, email }
+  if (input.signing === undefined) return { name, email }
+  const signing = signingOf(input.signing)
+  if (signing === null) throw new Error('Invalid signing key')
+  return { name, email, signing }
 }
 
 const isProfile = (value: unknown): value is Profile => {
   const p = value as Partial<Profile> | null
   return !!p && typeof p.id === 'string' && typeof p.name === 'string' && typeof p.email === 'string'
+}
+
+const withCleanSigning = (profile: Profile): Profile => {
+  const { signing: raw, ...rest } = profile
+  const signing = signingOf(raw)
+  return signing === null ? rest : { ...rest, signing }
 }
 
 /** Commit identities and each repository's chosen one, kept in a JSON file in the app's data folder. */
@@ -39,7 +60,7 @@ export class ProfileStore {
     }
     try {
       const parsed = JSON.parse(text) as Partial<Settings>
-      const profiles = Array.isArray(parsed.profiles) ? parsed.profiles.filter(isProfile) : []
+      const profiles = Array.isArray(parsed.profiles) ? parsed.profiles.filter(isProfile).map(withCleanSigning) : []
       const repoProfiles =
         parsed.repoProfiles && typeof parsed.repoProfiles === 'object' ? { ...parsed.repoProfiles } : {}
       return { profiles, repoProfiles }

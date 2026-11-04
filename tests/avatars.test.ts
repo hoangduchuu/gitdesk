@@ -286,7 +286,8 @@ describe('commit details', () => {
       authorTime: Date.parse('2020-01-01T00:00:00Z') / 1000,
       committerName: 'Bot',
       committerEmail: 'bot@example.com',
-      committerTime: Date.parse('2021-06-01T12:00:00Z') / 1000
+      committerTime: Date.parse('2021-06-01T12:00:00Z') / 1000,
+      signature: 'none'
     })
     await expect(readCommitDetails(repo, 'deadbeef')).rejects.toThrow()
   })

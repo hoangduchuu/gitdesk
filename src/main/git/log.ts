@@ -1,7 +1,8 @@
-import type { CommitDetails, FileHistoryEntry } from '../../shared/model'
+import type { CommitDetails, FileHistoryEntry, SignatureStatus } from '../../shared/model'
 import { parseDecorations } from '../../shared/refs'
 import type { Commit } from '../../shared/types'
 import { runGit } from './exec'
+import { sshProgramOptions } from './worktree'
 
 const FIELD = '\x1f'
 // The body comes last: it is free text, so anything after the subject belongs to it.
@@ -63,10 +64,10 @@ export async function readFileHistory(repoPath: string, path: string, limit: num
   return commits.map((commit) => ({ commit, path: pathAt.get(commit.hash) ?? path }))
 }
 
-/** Author and committer of one commit. */
+/** Author and committer of one commit, and whether its signature checks out on this computer. */
 export async function readCommitDetails(repoPath: string, hash: string): Promise<CommitDetails> {
-  const out = await runGit(repoPath, ['log', '-1', `--format=${['%H', '%an', '%ae', '%at', '%cn', '%ce', '%ct'].join('%x1f')}`, hash, '--'])
-  const [full, authorName, authorEmail, authorTime, committerName, committerEmail, committerTime] = out.replace(/\n$/, '').split(FIELD)
+  const out = await runGit(repoPath, [...(await sshProgramOptions(repoPath)), 'log', '-1', `--format=${['%H', '%an', '%ae', '%at', '%cn', '%ce', '%ct', '%G?'].join('%x1f')}`, hash, '--'])
+  const [full, authorName, authorEmail, authorTime, committerName, committerEmail, committerTime, signature] = out.replace(/\n$/, '').split(FIELD)
   if (!full || committerTime === undefined) throw new Error(`Unknown commit: ${hash}`)
   return {
     hash: full,
@@ -75,6 +76,20 @@ export async function readCommitDetails(repoPath: string, hash: string): Promise
     authorTime: Number(authorTime),
     committerName: committerName!,
     committerEmail: committerEmail!,
-    committerTime: Number(committerTime)
+    committerTime: Number(committerTime),
+    signature: await withSignedHeader(repoPath, full, signatureStatus(signature ?? 'N'))
   }
 }
+
+/**
+ * git reports "none" when it cannot check an ssh signature at all (no allowed-signers file is configured),
+ * even though the commit is signed. The commit's own header tells the difference.
+ */
+async function withSignedHeader(repoPath: string, hash: string, status: SignatureStatus): Promise<SignatureStatus> {
+  if (status !== 'none') return status
+  const header = (await runGit(repoPath, ['cat-file', 'commit', hash])).split('\n\n', 1)[0] ?? ''
+  return /^gpgsig(-sha256)? /m.test(header) ? 'unverified' : 'none'
+}
+
+/** git's one-letter `%G?` code as a status: G good, B/R bad or revoked, N none, anything else signed but not vouched for. */
+export const signatureStatus = (code: string): SignatureStatus => (code === 'G' ? 'good' : code === 'B' || code === 'R' ? 'bad' : code === 'N' || code === '' ? 'none' : 'unverified')

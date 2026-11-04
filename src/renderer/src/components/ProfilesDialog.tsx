@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import type { Profile, ProfileAuthState } from '../../../shared/model'
+import type { Profile, ProfileAuthState, ProfileSigning } from '../../../shared/model'
 import { api, errorMessage, unwrap } from '../api'
 import { useT } from '../i18n'
 import { useConfirm } from './ConfirmDialog'
@@ -12,7 +12,7 @@ interface Props {
   onClose: () => void
 }
 
-type Draft = { id?: string; name: string; email: string }
+type Draft = { id?: string; name: string; email: string; signing?: ProfileSigning }
 const EMPTY_DRAFT: Draft = { name: '', email: '' }
 
 /** Add, edit and delete commit profiles (name + email). */
@@ -69,7 +69,7 @@ export function ProfilesDialog({ repo, onClose }: Props) {
               <Avatar name={profile.name} email={profile.email} size={28} />
               <span className="profile-text">
                 <span className="author-name">{profile.name}</span>
-                <span className="muted">{profile.email}</span>
+                <span className="muted">{profile.email}{profile.signing ? ` · ${t('profiles.signed')}` : ''}</span>
               </span>
               <button type="button" className="link" onClick={() => setDraft(profile)}>
                 <Icon name="rename" size={14} />{t('common.edit')}
@@ -96,6 +96,39 @@ export function ProfilesDialog({ repo, onClose }: Props) {
             {t('profiles.email')}
             <input type="email" value={draft.email} onChange={(event) => setDraft({ ...draft, email: event.target.value })} />
           </label>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={draft.signing !== undefined}
+              onChange={(event) => {
+                const { signing: _removed, ...rest } = draft
+                setDraft(event.target.checked ? { ...rest, signing: { format: 'ssh', key: '' } } : rest)
+              }}
+            />
+            {t('profiles.sign')}
+          </label>
+          {draft.signing && (
+            <>
+              <label>
+                {t('profiles.signFormat')}
+                <select value={draft.signing.format} onChange={(event) => setDraft({ ...draft, signing: { ...draft.signing!, format: event.target.value as ProfileSigning['format'] } })}>
+                  <option value="ssh">{t('profiles.signSsh')}</option>
+                  <option value="openpgp">{t('profiles.signGpg')}</option>
+                </select>
+              </label>
+              <label>
+                {t('profiles.signKey')}
+                <input
+                  value={draft.signing.key}
+                  spellCheck={false}
+                  autoCapitalize="off"
+                  placeholder={draft.signing.format === 'ssh' ? '~/.ssh/id_ed25519.pub' : '3AA5C34371567BD2'}
+                  onChange={(event) => setDraft({ ...draft, signing: { ...draft.signing!, key: event.target.value } })}
+                />
+              </label>
+              <p className="muted">{t(draft.signing.format === 'ssh' ? 'profiles.signSshHelp' : 'profiles.signGpgHelp')}</p>
+            </>
+          )}
           {error && <p className="error-inline">{error}</p>}
           <div className="modal-actions">
             {draft.id && (
@@ -106,7 +139,7 @@ export function ProfilesDialog({ repo, onClose }: Props) {
             <button type="button" className="ghost" onClick={onClose}>
               <Icon name="close" size={14} />{t('common.close')}
             </button>
-            <button type="submit" disabled={draft.name.trim() === '' || draft.email.trim() === ''}>
+            <button type="submit" disabled={draft.name.trim() === '' || draft.email.trim() === '' || (draft.signing !== undefined && draft.signing.key.trim() === '')}>
               <Icon name={draft.id ? 'save' : 'stage'} size={14} />
               {draft.id ? t('common.save') : t('profiles.add')}
             </button>
