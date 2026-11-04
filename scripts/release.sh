@@ -61,9 +61,7 @@ DMG="dist/GitDesk-$VERSION-arm64.dmg"
 
 echo "→ Committing and pushing"
 git add package.json package-lock.json
-git commit -q -m "Release $TAG
-
-Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+git commit -q -m "Release $TAG"
 "${GIT_PUSH[@]}" push -q origin "$BRANCH"
 
 echo "→ Publishing release"
