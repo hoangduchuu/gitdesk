@@ -6,6 +6,7 @@ import {
   REPO_METHODS,
   REPO_OPENED_CHANNEL,
   TERMINAL_EVENT_CHANNEL,
+  UPDATE_PROGRESS_CHANNEL,
   type GitDeskApi,
   type GitDeskEvents
 } from '../shared/api'
@@ -29,6 +30,7 @@ const subscribe = <T,>(channel: string, listener: (payload: T) => void): (() => 
 const events: GitDeskEvents = {
   onRepoOpened: (listener) => subscribe(REPO_OPENED_CHANNEL, listener),
   onTerminalEvent: (listener) => subscribe(TERMINAL_EVENT_CHANNEL, listener),
+  onUpdateProgress: (listener) => subscribe(UPDATE_PROGRESS_CHANNEL, listener),
   onMenuCommand: (listener) => subscribe(MENU_COMMAND_CHANNEL, listener)
 }
 

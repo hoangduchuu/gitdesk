@@ -356,11 +356,19 @@ export const TERMINAL_EVENT_CHANNEL = 'gitdesk:terminal-event'
 
 export type TerminalEvent = { kind: 'data'; id: number; data: string } | { kind: 'exit'; id: number; code: number }
 
+/** Main -> renderer: how far the update download is. */
+export const UPDATE_PROGRESS_CHANNEL = 'gitdesk:update-progress'
+
+export type UpdateProgress =
+  | { phase: 'downloading'; received: number; /** Size of the file, or null when the server does not say. */ total: number | null }
+  | { phase: 'installing' }
+
 /** Events the main process pushes to the renderer (not request/response). Each returns an unsubscribe function. */
 export interface GitDeskEvents {
   onRepoOpened(listener: (result: Result<RepoInfo | null>) => void): () => void
   onTerminalEvent(listener: (event: TerminalEvent) => void): () => void
   onMenuCommand(listener: (command: MenuCommand) => void): () => void
+  onUpdateProgress(listener: (progress: UpdateProgress) => void): () => void
 }
 
 type UnlistedMethods = Exclude<RepoMethod, (typeof REPO_METHODS)[number]>

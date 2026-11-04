@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { ageMarkers, authorHue, changeSummary, relativeAge, splitPath } from '../src/shared/format'
+import { ageMarkers, authorHue, changeSummary, formatBytes, relativeAge, splitPath } from '../src/shared/format'
 
 const MINUTE = 60
 const HOUR = 60 * MINUTE
@@ -57,4 +57,17 @@ describe('ageMarkers', () => {
     const times = [null, NOW - 3 * DAY, NOW - 3 * DAY, NOW - 4 * DAY, null, NOW - 4 * DAY, NOW - 800 * DAY]
     expect(ageMarkers(times, NOW, 'en-US')).toEqual([null, null, '3 days ago', null, null, '4 days ago', '2 years ago'])
   })
+})
+
+describe('formatBytes', () => {
+  test.each([
+    [0, '0 B'],
+    [512, '512 B'],
+    [1024, '1.0 KB'],
+    [850 * 1024, '850 KB'],
+    [12.4 * 1024 * 1024, '12.4 MB'],
+    [105 * 1024 * 1024, '105 MB'],
+    [3 * 1024 ** 3, '3.0 GB'],
+    [-5, '0 B']
+  ])('%s -> %s', (bytes, text) => expect(formatBytes(bytes)).toBe(text))
 })

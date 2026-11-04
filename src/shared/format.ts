@@ -51,3 +51,16 @@ export function ageMarkers(times: ReadonlyArray<number | null>, now: number, loc
     return next === label ? null : label
   })
 }
+
+/** "12.4 MB", "830 KB", "512 B": a byte count for people. */
+export function formatBytes(bytes: number, locale = 'en-US'): string {
+  const units = ['B', 'KB', 'MB', 'GB']
+  let value = Math.max(0, bytes)
+  let unit = 0
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024
+    unit += 1
+  }
+  const digits = unit === 0 || value >= 100 ? 0 : 1
+  return `${new Intl.NumberFormat(locale, { maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value)} ${units[unit]}`
+}

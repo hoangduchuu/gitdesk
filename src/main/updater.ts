@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
+import type { UpdateProgress } from '../shared/api'
 import type { UpdateInfo } from '../shared/model'
 
 const REPO = 'hoangduchuu/gitdesk'
@@ -45,6 +46,44 @@ export async function checkForUpdate(current: string, request: typeof fetch = fe
   }
 }
 
+/** Progress is reported at most this often (and on every whole percent), so a fast download does not flood the window. */
+const PROGRESS_INTERVAL_MS = 150
+
+/**
+ * Download `url` to `file`, calling `onProgress` as bytes arrive. The size comes from the
+ * Content-Length header; a server that omits it gives `total: null` (an unknown length).
+ */
+export async function downloadFile(
+  url: string,
+  file: string,
+  onProgress: (progress: UpdateProgress) => void = () => undefined,
+  request: typeof fetch = fetch
+): Promise<void> {
+  const response = await request(url, { headers: { 'User-Agent': 'GitDesk' } })
+  if (!response.ok || response.body === null) throw new Error(`Download failed (${response.status})`)
+  const length = Number(response.headers.get('content-length'))
+  const total = Number.isFinite(length) && length > 0 ? length : null
+  let received = 0
+  let lastSent = 0
+  let lastPercent = -1
+  const report = (force: boolean): void => {
+    const now = Date.now()
+    const percent = total === null ? -1 : Math.floor((received / total) * 100)
+    if (!force && percent === lastPercent && now - lastSent < PROGRESS_INTERVAL_MS) return
+    lastSent = now
+    lastPercent = percent
+    onProgress({ phase: 'downloading', received, total })
+  }
+  report(true)
+  const body = Readable.fromWeb(response.body as never)
+  body.on('data', (chunk: Buffer) => {
+    received += chunk.length
+    report(false)
+  })
+  await pipeline(body, createWriteStream(file))
+  report(true)
+}
+
 const sh = (script: string, ...args: string[]): void => {
   const child = spawn('/bin/sh', ['-c', script, 'sh', ...args], { detached: true, stdio: 'ignore' })
   child.unref()
@@ -55,14 +94,18 @@ const sh = (script: string, ...args: string[]): void => {
  * in a detached shell after this process exits, so the running bundle is not overwritten.
  * `bundle` is the installed GitDesk.app; `quit` ends the app once the installer script is running.
  */
-export async function installUpdate(info: UpdateInfo, bundle: string, quit: () => void): Promise<void> {
+export async function installUpdate(
+  info: UpdateInfo,
+  bundle: string,
+  quit: () => void,
+  onProgress: (progress: UpdateProgress) => void = () => undefined
+): Promise<void> {
   if (!info.available || info.dmgUrl === null || !info.dmgUrl.startsWith(DOWNLOAD_PREFIX)) throw new Error('No update is available')
   if (!bundle.endsWith('.app')) throw new Error('Updating works only from the installed app')
   const dir = await mkdtemp(join(tmpdir(), 'gitdesk-update-'))
   const dmg = join(dir, 'GitDesk.dmg')
-  const response = await fetch(info.dmgUrl, { headers: { 'User-Agent': 'GitDesk' } })
-  if (!response.ok || response.body === null) throw new Error(`Download failed (${response.status})`)
-  await pipeline(Readable.fromWeb(response.body as never), createWriteStream(dmg))
+  await downloadFile(info.dmgUrl, dmg, onProgress)
+  onProgress({ phase: 'installing' })
   // Mount, copy next to the old app, swap, relaunch. If anything fails the old app stays.
   sh(
     `set -e
