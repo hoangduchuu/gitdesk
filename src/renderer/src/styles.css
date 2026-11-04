@@ -1535,14 +1535,15 @@ button.small {
 }
 
 .profiles-modal {
-  width: 460px;
+  width: 520px;
+  max-width: calc(100vw - 32px);
 }
 
 .profile-list {
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: 220px;
+  max-height: min(340px, 45vh);
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -1554,8 +1555,9 @@ button.small {
 
 .profile-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 6px 10px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -1568,10 +1570,25 @@ button.small {
 }
 
 .profile-text {
-  flex: 1;
+  flex: 1 1 140px;
   min-width: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* Long names and emails wrap inside the text column instead of running under the buttons. */
+.profile-text > span {
+  overflow-wrap: anywhere;
+}
+
+.profile-row > button.link {
+  flex: none;
+  white-space: nowrap;
+}
+
+.profile-row > .profile-auth {
+  flex: 1 0 100%;
+  margin: 0 0 0 38px;
 }
 
 .profile-form {
