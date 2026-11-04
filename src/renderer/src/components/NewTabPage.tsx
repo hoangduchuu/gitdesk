@@ -13,7 +13,7 @@ interface Props {
   onOpenDialog: () => void
   onOpenRecent: (path: string) => void
   /** Clone (folder dialog included) and show the result in this tab. */
-  onClone: (url: string, profileId: string | null) => Promise<void>
+  onClone: (url: string, profileId: string | null, recurseSubmodules: boolean) => Promise<void>
 }
 
 /** An empty tab: open a repository, or pick one opened before. */

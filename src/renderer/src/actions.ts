@@ -1,5 +1,5 @@
 import type { ResetMode } from '../../shared/api'
-import type { Branch, GitflowKind, GitflowState, MergeOutcome, PullRequest, ReflogEntry, Remote, Stash, Tag, WorkingTreeStatus, Worktree } from '../../shared/model'
+import type { Branch, GitflowKind, GitflowState, MergeOutcome, PullRequest, ReflogEntry, Remote, Stash, Submodule, Tag, WorkingTreeStatus, Worktree } from '../../shared/model'
 import { maskUrl } from '../../shared/remote-url'
 import type { Commit, Result } from '../../shared/types'
 import { branchDropActions, type DragBranch } from '../../shared/branch-drag'
@@ -31,6 +31,8 @@ export interface ActionContext {
   canPullRequest: boolean
   /** Open another working tree of this repository in a new tab. */
   openWorktree: (path: string) => void
+  /** Open a cloned submodule in a new tab. */
+  openSubmodule: (path: string) => void
   /** Show the dialog for the Git Flow branch names and prefixes. */
   openGitflowInit: (state: GitflowState) => void
   t: Translate
@@ -343,6 +345,16 @@ export function createActions(ctx: ActionContext) {
       : [action(t('worktree.remove'), () => removeWorktree(worktree), { icon: 'delete', danger: true, disabled: worktree.main || worktree.path === path })])
   ]
 
+  // ---------- submodules ----------
+  const updateSubmodules = (target: string | null): void =>
+    void run(t('submodule.updating'), () => gitdesk.updateSubmodules(path, target))
+  const submoduleMenu = (submodule: Submodule): MenuItem[] => [
+    heading(submodule.path),
+    action(t('submodule.open'), () => ctx.openSubmodule(submodule.path), { icon: 'open', disabled: submodule.state === 'uninitialized' }),
+    action(t('submodule.update'), () => updateSubmodules(submodule.path), { icon: 'download' }),
+    ...(submodule.url ? [separator, action(t('submodule.copyUrl'), () => copy(submodule.url!, t('copy.submoduleUrl')), { icon: 'copy' })] : [])
+  ]
+
   // ---------- pull requests ----------
   const pullRequestMenu = (pr: PullRequest): MenuItem[] => [
     heading(`#${pr.number} ${pr.title}`),
@@ -569,6 +581,8 @@ export function createActions(ctx: ActionContext) {
     gitflowMenu,
     branchDropMenu,
     commitMenu,
+    submoduleMenu,
+    updateSubmodules,
     worktreeMenu,
     promptNewWorktree,
     pullRequestMenu,

@@ -2,7 +2,7 @@ import { useState, type MouseEvent } from 'react'
 import type { BranchDrop } from '../branchDrag'
 import { keyboardActivatable } from '../a11y'
 import { useBranchDnd } from '../branchDrag'
-import type { Branch, PullRequest, Remote, Stash, Tag, Worktree } from '../../../shared/model'
+import type { Branch, PullRequest, Remote, Stash, Submodule, Tag, Worktree } from '../../../shared/model'
 import { PullRequestsSection } from './PullRequestsSection'
 import { maskUrl } from '../../../shared/remote-url'
 import { useT } from '../i18n'
@@ -40,6 +40,10 @@ interface Props {
   onWorktreeMenu: (worktree: Worktree, event: MouseEvent) => void
   onOpenWorktree: (worktree: Worktree) => void
   onAddWorktree: () => void
+  submodules: readonly Submodule[]
+  onSubmoduleMenu: (submodule: Submodule, event: MouseEvent) => void
+  onOpenSubmodule: (submodule: Submodule) => void
+  onUpdateSubmodules: () => void
 }
 
 export function Sidebar(props: Props) {
@@ -48,6 +52,7 @@ export function Sidebar(props: Props) {
   const { onSelectTag, onBranchMenu, onTagMenu, onStashMenu, onBranchDrop, onRemoteMenu, onAddRemote, onPublish } = props
   const { github, repo, prVersion, onPullRequestMenu, onCreatePullRequest } = props
   const { worktrees, currentPath, onWorktreeMenu, onOpenWorktree, onAddWorktree } = props
+  const { submodules, onSubmoduleMenu, onOpenSubmodule, onUpdateSubmodules } = props
   const [query, setQuery] = useState('')
   const needle = query.trim().toLowerCase()
   const matches = (name: string): boolean => needle === '' || name.toLowerCase().includes(needle)
@@ -143,6 +148,38 @@ export function Sidebar(props: Props) {
           </li>
         ))}
       </ul>
+
+      {submodules.length > 0 && (
+        <>
+          <h3 className="sidebar-heading">
+            <Icon name="link" size={14} />
+            {t('submodule.heading', { count: submodules.length })}
+            <button type="button" className="sidebar-add" onClick={onUpdateSubmodules} title={t('submodule.updateAll')} aria-label={t('submodule.updateAll')}>
+              <Icon name="download" size={14} />
+            </button>
+          </h3>
+          <ul className="sidebar-list">
+            {submodules.filter((submodule) => matches(submodule.path)).map((submodule) => (
+              <li
+                key={submodule.path}
+                className="sidebar-item"
+                onContextMenu={(event) => onSubmoduleMenu(submodule, event)}
+                onDoubleClick={() => submodule.state !== 'uninitialized' && onOpenSubmodule(submodule)}
+                title={`${submodule.path}${submodule.url ? `\n${maskUrl(submodule.url)}` : ''}\n${t('sidebar.rightClickActions')}`}
+              >
+                <span className="item-name">{submodule.path}</span>
+                <span className="count remote-url">
+                  {submodule.state === 'uninitialized'
+                    ? t('submodule.notCloned')
+                    : submodule.state === 'conflicted'
+                      ? t('submodule.conflict')
+                      : [submodule.state === 'modified' ? t('submodule.newCommits') : '', submodule.dirty ? t('submodule.dirty') : ''].filter(Boolean).join(', ')}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
 
       {github && <PullRequestsSection repo={repo} version={prVersion} onMenu={onPullRequestMenu} onCreate={onCreatePullRequest} />}
 

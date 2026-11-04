@@ -58,10 +58,12 @@ interface Props {
   onSwitchRepo: (path: string) => void
   /** Open another working tree of this repository in a new tab. */
   onOpenWorktree: (path: string) => void
+  /** Open a cloned submodule in a new tab. */
+  onOpenSubmodule: (path: string) => void
 }
 
 /** One repository's window content: toolbar, sidebar, graph, details and terminal. */
-export function Workspace({ repo, active, onOpen, onSwitchRepo, onOpenWorktree }: Props) {
+export function Workspace({ repo, active, onOpen, onSwitchRepo, onOpenWorktree, onOpenSubmodule }: Props) {
   const t = useT()
   const confirm = useConfirm()
   const tCount = useTCount()
@@ -136,6 +138,7 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo, onOpenWorktree }
     openPullRequestDialog: (head) => setPrDialog({ head }),
     canPullRequest: githubRemoteName(data?.remotes.remotes ?? []) !== null,
     openWorktree: onOpenWorktree,
+    openSubmodule: onOpenSubmodule,
     openGitflowInit: setGitflowInit,
     t,
     tCount
@@ -408,6 +411,10 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo, onOpenWorktree }
             onWorktreeMenu={(worktree, event) => openMenu(actions.worktreeMenu(worktree), event)}
             onOpenWorktree={(worktree) => onOpenWorktree(worktree.path)}
             onAddWorktree={actions.promptNewWorktree}
+            submodules={data.submodules}
+            onSubmoduleMenu={(submodule, event) => openMenu(actions.submoduleMenu(submodule), event)}
+            onOpenSubmodule={(submodule) => onOpenSubmodule(submodule.path)}
+            onUpdateSubmodules={() => actions.updateSubmodules(null)}
           />
         ) : (
           <nav className="sidebar" />

@@ -6,7 +6,7 @@ import { Icon } from '../icons'
 
 interface Props {
   /** Runs the clone (folder dialog included); resolves when done. Throws to show an error here. */
-  onClone: (url: string, profileId: string | null) => Promise<void>
+  onClone: (url: string, profileId: string | null, recurseSubmodules: boolean) => Promise<void>
   onClose: () => void
 }
 
@@ -16,6 +16,7 @@ export function CloneDialog({ onClone, onClose }: Props) {
   const [url, setUrl] = useState('')
   const [profiles, setProfiles] = useState<CloneProfile[]>([])
   const [profileId, setProfileId] = useState('')
+  const [recurse, setRecurse] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -29,7 +30,7 @@ export function CloneDialog({ onClone, onClose }: Props) {
     setBusy(true)
     setError(null)
     try {
-      await onClone(url.trim(), profileId === '' ? null : profileId)
+      await onClone(url.trim(), profileId === '' ? null : profileId, recurse)
     } catch (failure) {
       setError(errorMessage(failure))
       setBusy(false)
@@ -67,6 +68,10 @@ export function CloneDialog({ onClone, onClose }: Props) {
               </option>
             ))}
           </select>
+        </label>
+        <label className="checkbox">
+          <input type="checkbox" checked={recurse} disabled={busy} onChange={(event) => setRecurse(event.target.checked)} />
+          {t('clone.submodules')}
         </label>
         <p className="muted">{t('clone.hint')}</p>
         {error && <p className="error">{error}</p>}

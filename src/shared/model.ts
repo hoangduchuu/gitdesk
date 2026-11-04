@@ -78,6 +78,26 @@ export interface FileHistoryEntry {
   path: string
 }
 
+export type SubmoduleState = 'uninitialized' | 'ok' | 'modified' | 'conflicted'
+
+/** A submodule of the repository (`git submodule status`, with its `.gitmodules` entry). */
+export interface Submodule {
+  /** Folder inside the repository. */
+  path: string
+  /** Name in `.gitmodules`; null when the entry is missing. */
+  name: string | null
+  url: string | null
+  /** Commit checked out in the submodule (the recorded one while uninitialized). */
+  hash: string
+  /**
+   * uninitialized: not cloned yet. modified: the checked-out commit is not the one this repository records.
+   * conflicted: the merge left the submodule's commit unresolved.
+   */
+  state: SubmoduleState
+  /** The submodule has uncommitted changes of its own. */
+  dirty: boolean
+}
+
 /** One checked-out working tree of a repository (`git worktree list`). */
 export interface Worktree {
   path: string

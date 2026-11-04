@@ -34,4 +34,30 @@ describe('cloneRepository', () => {
     expect(existsSync(join(path, 'a.txt'))).toBe(true)
     await expect(cloneRepository(source, parent)).rejects.toThrow('already exists')
   })
+
+  it('can clone the submodules along', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'clone-sub-'))
+    const make = (name: string): string => {
+      const dir = join(root, name)
+      mkdirSync(dir)
+      execFileSync('git', ['-C', dir, 'init', '-q'])
+      writeFileSync(join(dir, `${name}.txt`), name)
+      execFileSync('git', ['-C', dir, 'add', '.'])
+      execFileSync('git', ['-C', dir, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', name])
+      return dir
+    }
+    const lib = make('lib')
+    const main = make('main')
+    execFileSync('git', ['-C', main, '-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', lib, 'vendor/lib'])
+    execFileSync('git', ['-C', main, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'add lib'])
+    const env = { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'protocol.file.allow', GIT_CONFIG_VALUE_0: 'always' }
+    mkdirSync(join(root, 'plain'))
+    mkdirSync(join(root, 'deep'))
+
+    const plain = await cloneRepository(main, join(root, 'plain'), env)
+    const deep = await cloneRepository(main, join(root, 'deep'), env, false, true)
+
+    expect(existsSync(join(plain, 'vendor/lib/lib.txt'))).toBe(false)
+    expect(existsSync(join(deep, 'vendor/lib/lib.txt'))).toBe(true)
+  })
 })
