@@ -2787,3 +2787,31 @@ img.avatar {
   height: 8px;
   accent-color: var(--accent, #4c8dff);
 }
+
+/* ---------- foldable sidebar sections ---------- */
+
+.section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+.section-toggle:hover {
+  color: var(--text);
+}
+.section-toggle .chevron {
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+.section-toggle { white-space: nowrap; }
+/* Two buttons on the right (pull requests): only the first pushes them away from the title. */
+.sidebar-add + .sidebar-add { margin-left: 0; }

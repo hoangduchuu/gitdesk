@@ -198,6 +198,8 @@ export const vi: Record<MessageKey, string> = {
   'sidebar.local': 'Local ({count})',
   'sidebar.remote': 'Remote ({count})',
   'sidebar.tags': 'Tag ({count})',
+  'sidebar.fold': 'Thu gọn mục này',
+  'sidebar.unfold': 'Mở rộng mục này',
   'sidebar.stashes': 'Stash ({count})',
   'sidebar.checkoutHint': 'Nhấp đúp để checkout, nhấp phải để xem thêm',
   'sidebar.checkoutLocalHint': 'Nhấp đúp để checkout thành branch local, nhấp phải để xem thêm',
