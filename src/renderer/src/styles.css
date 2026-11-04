@@ -2534,3 +2534,41 @@ img.avatar {
 .conflict-empty { margin: 0; padding: 8px; color: var(--text-dim); }
 .conflict-order { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; }
 .conflict-order [aria-pressed='true'] { font-weight: 600; background: var(--bg); }
+
+/* ---------- changes panel: distinct staged / unstaged sections ---------- */
+.changes-panel > section + section {
+  margin-top: 8px;
+  border-top: 2px solid var(--border);
+}
+
+.changes-panel > section:not(.commit-box) > .panel-heading {
+  padding: 8px 12px;
+  margin-bottom: 4px;
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--border);
+}
+
+.changes-panel button.link {
+  padding: 2px 8px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: transparent;
+  line-height: 1.4;
+}
+
+.changes-panel button.link:hover {
+  background: var(--bg-selected);
+}
+
+.changes-panel button.link.danger {
+  border-color: var(--danger);
+  background: transparent;
+}
+
+.changes-panel button.link.danger:hover {
+  background: var(--banner-error-bg);
+}
+
+.changes-panel .file-actions {
+  gap: 4px;
+}
