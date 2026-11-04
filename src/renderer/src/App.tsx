@@ -3,6 +3,7 @@ import type { RepoInfo, Result } from '../../shared/types'
 import { api, errorMessage, unwrap } from './api'
 import { MessageDialog } from './components/MessageDialog'
 import { NewTabPage } from './components/NewTabPage'
+import { Toast } from './components/Toast'
 import { TabBar } from './components/TabBar'
 import {
   addEmptyTab,
@@ -22,7 +23,16 @@ import { Workspace } from './Workspace'
 export function App() {
   const [state, setState] = useState<TabsState | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [updateNotice, setUpdateNotice] = useState<string | null>(null)
   const gitdesk = api()
+
+  // Tell the user once at startup when a newer release exists; failures (offline) stay silent.
+  useEffect(() => {
+    void gitdesk
+      .checkForUpdate()
+      .then((result) => result.ok && result.data.available && setUpdateNotice(`GitDesk ${result.data.latest} is available. Open Settings to update.`))
+      .catch(() => undefined)
+  }, [gitdesk])
 
   /** Put an opened repository in the target tab (when empty) or a new tab. */
   const show = useCallback((result: Result<RepoInfo | null>, targetId: number | null) => {
@@ -130,6 +140,7 @@ export function App() {
           </div>
         )
       })}
+      {updateNotice && !error && <Toast message={updateNotice} onClose={() => setUpdateNotice(null)} />}
       {error && <MessageDialog kind="error" message={error} onClose={() => setError(null)} />}
     </div>
   )

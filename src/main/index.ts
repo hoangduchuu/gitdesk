@@ -16,6 +16,7 @@ import { AvatarService } from './avatars'
 import { Credentials } from './credentials'
 import { createHandlers } from './handlers'
 import { ProfileStore } from './profiles'
+import { checkForUpdate, installUpdate } from './updater'
 import { TerminalManager } from './terminal'
 import { requireInteger, requireString } from './validate'
 import { WorkspaceStore } from './workspace'
@@ -101,6 +102,18 @@ function registerIpc(window: BrowserWindow): void {
       const folder = picked.filePaths[0]
       if (picked.canceled || folder === undefined) return null
       return openRepo(folder)
+    })
+  )
+
+  ipcMain.handle(channelFor('checkForUpdate'), () => toResult(() => checkForUpdate(app.getVersion())))
+  ipcMain.handle(channelFor('installUpdate'), () =>
+    toResult(async () => {
+      if (!app.isPackaged) throw new Error('Updating works only from the installed app')
+      const info = await checkForUpdate(app.getVersion())
+      // <bundle>.app/Contents/MacOS/GitDesk -> <bundle>.app
+      const bundle = join(app.getPath('exe'), '..', '..', '..')
+      await installUpdate(info, bundle, () => app.quit())
+      return null
     })
   )
 

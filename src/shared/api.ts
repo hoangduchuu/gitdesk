@@ -17,6 +17,7 @@ import type {
   ProfileInput,
   ProfileState,
   PublishInput,
+  UpdateInfo,
   PublishResult,
   RemoteState,
   RewordResult,
@@ -53,6 +54,10 @@ export interface CloneProfile {
 /** API exposed to the renderer through the preload bridge. Every call takes the repo path first. */
 export interface GitDeskApi {
   openRepoDialog(): Async<RepoInfo | null>
+  /** Ask GitHub whether a newer GitDesk release exists. */
+  checkForUpdate(): Async<UpdateInfo>
+  /** Download the newest release, replace the installed app with it and relaunch. */
+  installUpdate(): Async<null>
   /** Profiles that can authenticate a clone, i.e. those connected to a provider. */
   getCloneProfiles(): Async<CloneProfile[]>
   /**
@@ -176,6 +181,8 @@ export interface GitDeskApi {
 /** Methods that do not act on an already opened repository. */
 export const APP_METHODS = [
   'openRepoDialog',
+  'checkForUpdate',
+  'installUpdate',
   'getCloneProfiles',
   'cloneRepository',
   'getWorkspace',

@@ -227,3 +227,12 @@ export interface CommitDetails {
   /** Unix seconds */
   committerTime: number
 }
+
+export interface UpdateInfo {
+  current: string
+  latest: string
+  /** A newer release with a downloadable app exists. */
+  available: boolean
+  releaseUrl: string
+  dmgUrl: string | null
+}

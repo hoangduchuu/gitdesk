@@ -2,6 +2,7 @@ import { useT, type MessageKey } from '../i18n'
 import { AVATAR_SOURCES, LINE_WIDTH_PX, updateSettings, useSettings, type AvatarSource, type GraphLineWidth, type Language, type Theme } from '../hooks/useSettings'
 import { PALETTES, type PaletteName } from '../palettes'
 import { Icon } from '../icons'
+import { UpdateControls } from './UpdateControls'
 
 const THEMES: ReadonlyArray<[Theme, MessageKey]> = [
   ['dark', 'settings.theme.dark'],
@@ -135,6 +136,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         </fieldset>
 
         <p className="muted settings-hint">{t('settings.version', { version: __APP_VERSION__ })}</p>
+        <UpdateControls />
 
         <div className="modal-actions">
           <button type="button" onClick={onClose}>
