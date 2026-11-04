@@ -65,7 +65,10 @@ function InstallProgress({ progress }: { progress: UpdateProgress | null }) {
   const box = useRef<HTMLDivElement>(null)
   // The update area sits at the bottom of Settings: make sure the bar is in view when the download starts.
   // biome-ignore lint/correctness/useExhaustiveDependencies: scroll again when the text line appears and when installing starts
-  useEffect(() => box.current?.scrollIntoView({ block: 'nearest' }), [progress === null, progress?.phase])
+  // A block body: an effect must return nothing or a cleanup function, and scrollIntoView's return value is neither.
+  useEffect(() => {
+    box.current?.scrollIntoView({ block: 'nearest' })
+  }, [progress === null, progress?.phase])
   const { language } = useSettings()
   const locale = localeOf(language)
   if (progress?.phase === 'installing') {
