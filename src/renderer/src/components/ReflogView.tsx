@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type MouseEvent } from 'react'
 import type { ReflogEntry } from '../../../shared/model'
 import { relativeAge } from '../../../shared/format'
+import { undoKindOf } from '../../../shared/undo'
 import { api, errorMessage, unwrap } from '../api'
 import { localeOf, useT } from '../i18n'
 import { useSettings } from '../hooks/useSettings'
@@ -15,10 +16,12 @@ interface Props {
   /** Changes whenever the repository data is reloaded (after a reset, checkout...), so the list follows. */
   reloadKey: unknown
   onMenu: (entry: ReflogEntry, event: MouseEvent) => void
+  /** Take back the newest entry (the caller confirms). */
+  onUndo: (entry: ReflogEntry) => void
   onClose: () => void
 }
 
-export function ReflogView({ repo, reloadKey, onMenu, onClose }: Props) {
+export function ReflogView({ repo, reloadKey, onMenu, onUndo, onClose }: Props) {
   const t = useT()
   const { language } = useSettings()
   const locale = localeOf(language)
@@ -38,11 +41,23 @@ export function ReflogView({ repo, reloadKey, onMenu, onClose }: Props) {
     }
   }, [repo, reloadKey])
 
+  const newest = state.kind === 'ready' ? state.entries[0] : undefined
+  const canUndo = state.kind === 'ready' && state.entries.length > 1 && newest !== undefined && undoKindOf(newest.action) !== null
+
   return (
     <section className="reflog-view">
       <header className="view-header">
         <span className="view-title">{t('reflog.title')}</span>
         <span className="heading-actions">
+          <button
+            type="button"
+            className="ghost"
+            disabled={!canUndo}
+            title={canUndo && newest ? t('reflog.undoHint', { action: newest.action }) : t('reflog.cannotUndo')}
+            onClick={() => newest && onUndo(newest)}
+          >
+            <Icon name="revert" size={14} />{t('reflog.undo')}
+          </button>
           <button type="button" className="ghost" onClick={onClose}>
             <Icon name="close" size={14} />{t('common.close')}
           </button>

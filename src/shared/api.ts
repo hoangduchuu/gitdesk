@@ -99,6 +99,8 @@ export interface GitDeskApi {
   getStashes(repo: string): Async<Stash[]>
   /** Where HEAD has been, newest first: the way back to commits no branch points at any more. */
   getReflog(repo: string, limit: number): Async<ReflogEntry[]>
+  /** Take back the newest commit, reset or branch switch (see `undoKindOf`); refuses anything else. */
+  undoLastAction(repo: string): Async<null>
   getCommitFiles(repo: string, hash: string): Async<FileChange[]>
   getCommitDetails(repo: string, hash: string): Async<CommitDetails>
   /**
@@ -254,6 +256,7 @@ export const REPO_METHODS = [
   'resetTo',
   'checkoutCommit',
   'getReflog',
+  'undoLastAction',
   'searchCommits',
   'getFileHistory',
   'getBlame',

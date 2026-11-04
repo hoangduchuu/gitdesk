@@ -9,7 +9,7 @@ Let the user see where HEAD (and each branch) has been, and recover from a bad r
 - "Undo last action" = convenience button resetting `--keep`... decision deferred: first ship the list, then add undo as step 4 only if the list proves clunky (undo semantics for rebase/merge are subtle).
 
 ## Status
-Steps 1-4 done (git layer, API, view, recovery check). Step 5 (undo button) not started.
+Steps 1-5 done. Step 5: an "Undo last action" button in the reflog view takes back the newest commit (changes stay staged), reset (`--keep`, refuses if local changes are in the way) or branch switch; anything else is refused (`src/main/git/undo.ts`, `src/shared/undo.ts`).
 
 ## Steps
 1. **Git layer + tests.** `src/main/git/reflog.ts` exporting `readReflog(repo, limit)`; parse with `\x1f` like `log.ts`. Types `ReflogEntry` in `src/shared/model.ts`. Tests: after commit/reset/checkout the expected entries and order; empty repo (unborn HEAD) returns `[]`.

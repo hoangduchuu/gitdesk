@@ -82,6 +82,14 @@ describe('IPC handler validation', () => {
     expect(found).toHaveLength(1)
   })
 
+  test('undoes the last commit through the API', async () => {
+    commitFile(repo, 'b.txt', 'b\n')
+
+    await handlers.undoLastAction(repo)
+
+    expect(git(repo, 'log', '--format=%s').trim().split('\n')).toHaveLength(1)
+  })
+
   test('passes valid input through', async () => {
     const status = await handlers.getStatus(repo)
     expect(status.branch).toBe('main')

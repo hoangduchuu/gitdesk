@@ -140,6 +140,10 @@ export function createActions(ctx: ActionContext) {
     if (!(await confirm(t('action.resetConfirm', { current, hash: short(commit.hash), mode, warning }), { danger: true }))) return
     void run(t('action.resetting'), () => gitdesk.resetTo(path, commit.hash, mode))
   }
+  const undoLast = async (entry: ReflogEntry): Promise<void> => {
+    if (!(await confirm(t('action.undoConfirm', { action: entry.action })))) return
+    void run(t('action.undoing'), () => gitdesk.undoLastAction(path))
+  }
   const checkoutCommit = async (commit: Pick<Commit, 'hash'>): Promise<void> => {
     if (!(await confirm(t('action.checkoutCommitConfirm', { hash: short(commit.hash) })))) return
     void run(t('action.checkout'), () => gitdesk.checkoutCommit(path, commit.hash))
@@ -503,6 +507,7 @@ export function createActions(ctx: ActionContext) {
     gitflowMenu,
     branchDropMenu,
     commitMenu,
+    undoLast,
     fileMenu,
     reflogMenu,
     branchMenu,
