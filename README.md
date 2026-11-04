@@ -39,7 +39,7 @@ The script checks that the tree is clean and in sync with origin, bumps the vers
 
 ## Requirements
 
-- Node.js 24 (`fnm use 24`)
+- Node.js 24 (`fnm use`, reads `.nvmrc`). Node 22.12+ also works: that is the lowest version vitest and vite accept (`engines` in `package.json`)
 - `git` on PATH
 
 ## Commands
