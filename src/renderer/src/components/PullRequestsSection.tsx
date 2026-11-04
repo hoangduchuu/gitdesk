@@ -3,6 +3,7 @@ import type { PullRequest } from '../../../shared/model'
 import { api, errorMessage, unwrap } from '../api'
 import { useT } from '../i18n'
 import { Icon } from '../icons'
+import { SidebarSection } from './SidebarSection'
 
 type State = { kind: 'idle' } | { kind: 'loading' } | { kind: 'error'; message: string } | { kind: 'ready'; list: PullRequest[] }
 
@@ -12,10 +13,12 @@ interface Props {
   version: number
   onMenu: (pr: PullRequest, event: MouseEvent) => void
   onCreate: () => void
+  /** Show the list even if the section is folded (a sidebar search is active). */
+  forceOpen?: boolean
 }
 
 /** Open GitHub pull requests. Loaded on request, because it is a network call that needs a connected profile. */
-export function PullRequestsSection({ repo, version, onMenu, onCreate }: Props) {
+export function PullRequestsSection({ repo, version, onMenu, onCreate, forceOpen = false }: Props) {
   const t = useT()
   const [state, setState] = useState<State>({ kind: 'idle' })
   const [asked, setAsked] = useState(false)
@@ -41,18 +44,22 @@ export function PullRequestsSection({ repo, version, onMenu, onCreate }: Props) 
   }, [repo])
 
   return (
-    <>
-      <h3 className="sidebar-heading">
-        <Icon name="merge" size={14} />
-        {t('pr.heading', { count: state.kind === 'ready' ? state.list.length : 0 })}
-        <button type="button" className="sidebar-add" onClick={load} title={t('pr.refresh')} aria-label={t('pr.refresh')}>
-          <Icon name="fetch" size={14} />
-        </button>
-        <button type="button" className="sidebar-add" onClick={onCreate} title={t('pr.create')} aria-label={t('pr.create')}>
-          <Icon name="stage" size={14} />
-        </button>
-      </h3>
-      <ul className="sidebar-list">
+    <SidebarSection
+      id="pullRequests"
+      icon="merge"
+      title={t('pr.heading', { count: state.kind === 'ready' ? state.list.length : 0 })}
+      forceOpen={forceOpen}
+      actions={
+        <>
+          <button type="button" className="sidebar-add" onClick={load} title={t('pr.refresh')} aria-label={t('pr.refresh')}>
+            <Icon name="fetch" size={14} />
+          </button>
+          <button type="button" className="sidebar-add" onClick={onCreate} title={t('pr.create')} aria-label={t('pr.create')}>
+            <Icon name="stage" size={14} />
+          </button>
+        </>
+      }
+    >
         {state.kind === 'idle' && (
           <li className="sidebar-empty">
             <button type="button" className="link" onClick={load}>
@@ -72,7 +79,6 @@ export function PullRequestsSection({ repo, version, onMenu, onCreate }: Props) 
               {pr.draft && <span className="count">{t('pr.draft')}</span>}
             </li>
           ))}
-      </ul>
-    </>
+    </SidebarSection>
   )
 }

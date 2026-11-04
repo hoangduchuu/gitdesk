@@ -4,6 +4,7 @@ import { keyboardActivatable } from '../a11y'
 import { useBranchDnd } from '../branchDrag'
 import type { Branch, PullRequest, Remote, Stash, Submodule, Tag, Worktree } from '../../../shared/model'
 import { PullRequestsSection } from './PullRequestsSection'
+import { SidebarSection } from './SidebarSection'
 import { maskUrl } from '../../../shared/remote-url'
 import { useT } from '../i18n'
 import { Icon } from '../icons'
@@ -73,8 +74,7 @@ export function Sidebar(props: Props) {
         onChange={(event) => setQuery(event.target.value)}
         onKeyDown={(event) => event.key === 'Escape' && setQuery('')}
       />
-      <h3 className="sidebar-heading"><Icon name="local" size={14} />{t('sidebar.local', { count: local.length })}</h3>
-      <ul className="sidebar-list">
+      <SidebarSection id="local" icon="local" title={t('sidebar.local', { count: local.length })} forceOpen={needle !== ''}>
         {local.map((branch) => (
           <BranchItem
             key={branch.name}
@@ -86,10 +86,9 @@ export function Sidebar(props: Props) {
             onDrop={onBranchDrop}
           />
         ))}
-      </ul>
+      </SidebarSection>
 
-      <h3 className="sidebar-heading"><Icon name="remote" size={14} />{t('sidebar.remote', { count: remote.length })}</h3>
-      <ul className="sidebar-list">
+      <SidebarSection id="remoteBranches" icon="remote" title={t('sidebar.remote', { count: remote.length })} forceOpen={needle !== ''}>
         {remote.length === 0 && <li className="sidebar-empty">{t('sidebar.noRemoteBranches')}</li>}
         {remote.map((branch) => (
           <BranchItem
@@ -102,16 +101,19 @@ export function Sidebar(props: Props) {
             onDrop={onBranchDrop}
           />
         ))}
-      </ul>
+      </SidebarSection>
 
-      <h3 className="sidebar-heading">
-        <Icon name="link" size={14} />
-        {t('sidebar.remotes', { count: remotes.length })}
-        <button type="button" className="sidebar-add" onClick={onAddRemote} title={t('sidebar.addRemote')} aria-label={t('sidebar.addRemote')}>
-          <Icon name="stage" size={14} />
-        </button>
-      </h3>
-      <ul className="sidebar-list">
+      <SidebarSection
+        id="remotes"
+        icon="link"
+        title={t('sidebar.remotes', { count: remotes.length })}
+        forceOpen={needle !== ''}
+        actions={
+          <button type="button" className="sidebar-add" onClick={onAddRemote} title={t('sidebar.addRemote')} aria-label={t('sidebar.addRemote')}>
+            <Icon name="stage" size={14} />
+          </button>
+        }
+      >
         {remotes.length === 0 && (
           <li className="sidebar-empty">
             <button type="button" className="link" onClick={onPublish}>
@@ -125,16 +127,19 @@ export function Sidebar(props: Props) {
             <span className="count remote-url">{maskUrl(remote.fetchUrl)}</span>
           </li>
         ))}
-      </ul>
+      </SidebarSection>
 
-      <h3 className="sidebar-heading">
-        <Icon name="open" size={14} />
-        {t('worktree.heading', { count: worktrees.length })}
-        <button type="button" className="sidebar-add" onClick={onAddWorktree} title={t('worktree.new')} aria-label={t('worktree.new')}>
-          <Icon name="stage" size={14} />
-        </button>
-      </h3>
-      <ul className="sidebar-list">
+      <SidebarSection
+        id="worktrees"
+        icon="open"
+        title={t('worktree.heading', { count: worktrees.length })}
+        forceOpen={needle !== ''}
+        actions={
+          <button type="button" className="sidebar-add" onClick={onAddWorktree} title={t('worktree.new')} aria-label={t('worktree.new')}>
+            <Icon name="stage" size={14} />
+          </button>
+        }
+      >
         {worktrees.filter((worktree) => matches(worktree.branch ?? worktree.path)).map((worktree) => (
           <li
             key={worktree.path}
@@ -147,18 +152,20 @@ export function Sidebar(props: Props) {
             <span className="count remote-url">{worktree.prunable ? t('worktree.missing') : worktree.main ? t('worktree.main') : worktree.path.slice(worktree.path.lastIndexOf('/') + 1)}</span>
           </li>
         ))}
-      </ul>
+      </SidebarSection>
 
       {submodules.length > 0 && (
-        <>
-          <h3 className="sidebar-heading">
-            <Icon name="link" size={14} />
-            {t('submodule.heading', { count: submodules.length })}
+        <SidebarSection
+          id="submodules"
+          icon="link"
+          title={t('submodule.heading', { count: submodules.length })}
+          forceOpen={needle !== ''}
+          actions={
             <button type="button" className="sidebar-add" onClick={onUpdateSubmodules} title={t('submodule.updateAll')} aria-label={t('submodule.updateAll')}>
               <Icon name="download" size={14} />
             </button>
-          </h3>
-          <ul className="sidebar-list">
+          }
+        >
             {submodules.filter((submodule) => matches(submodule.path)).map((submodule) => (
               <li
                 key={submodule.path}
@@ -177,14 +184,12 @@ export function Sidebar(props: Props) {
                 </span>
               </li>
             ))}
-          </ul>
-        </>
+        </SidebarSection>
       )}
 
-      {github && <PullRequestsSection repo={repo} version={prVersion} onMenu={onPullRequestMenu} onCreate={onCreatePullRequest} />}
+      {github && <PullRequestsSection forceOpen={needle !== ''} repo={repo} version={prVersion} onMenu={onPullRequestMenu} onCreate={onCreatePullRequest} />}
 
-      <h3 className="sidebar-heading"><Icon name="tag" size={14} />{t('sidebar.tags', { count: tags.length })}</h3>
-      <ul className="sidebar-list">
+      <SidebarSection id="tags" icon="tag" title={t('sidebar.tags', { count: tags.length })} forceOpen={needle !== ''}>
         {tags.length === 0 && <li className="sidebar-empty">{t('sidebar.noTags')}</li>}
         {visibleTags.map((tag) => (
           <li
@@ -199,10 +204,9 @@ export function Sidebar(props: Props) {
             {tag.annotated && <span className="count">{t('sidebar.annotated')}</span>}
           </li>
         ))}
-      </ul>
+      </SidebarSection>
 
-      <h3 className="sidebar-heading"><Icon name="stash" size={14} />{t('sidebar.stashes', { count: stashes.length })}</h3>
-      <ul className="sidebar-list">
+      <SidebarSection id="stashes" icon="stash" title={t('sidebar.stashes', { count: stashes.length })} forceOpen={needle !== ''}>
         {stashes.length === 0 && <li className="sidebar-empty">{t('sidebar.noStashes')}</li>}
         {visibleStashes.map((stash) => (
           <li
@@ -218,7 +222,7 @@ export function Sidebar(props: Props) {
             <span className="count">{stash.ref.replace('stash@', '')}</span>
           </li>
         ))}
-      </ul>
+      </SidebarSection>
     </nav>
   )
 }

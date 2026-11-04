@@ -199,6 +199,8 @@ export const en = {
   'sidebar.local': 'Local ({count})',
   'sidebar.remote': 'Remote ({count})',
   'sidebar.tags': 'Tags ({count})',
+  'sidebar.fold': 'Collapse this section',
+  'sidebar.unfold': 'Expand this section',
   'sidebar.stashes': 'Stashes ({count})',
   'sidebar.checkoutHint': 'Double-click to check out, right-click for more',
   'sidebar.checkoutLocalHint': 'Double-click to check out as a local branch, right-click for more',
