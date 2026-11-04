@@ -4,6 +4,34 @@ Local-first desktop Git client (Electron + React + TypeScript). Git runs through
 installed `git` CLI in the main process; the renderer is sandboxed and reaches it only
 through the typed preload API (`window.gitdesk`).
 
+## Install (macOS, Apple Silicon)
+
+GitDesk is not signed with an Apple Developer ID, so macOS Gatekeeper will warn on a normal download.
+
+**Option 1 - one command (recommended)**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hoangduchuu/gitdesk/develop/install.sh | bash
+```
+
+**Option 2 - manual**
+
+1. Download `GitDesk-<version>-arm64.dmg` from [Releases](https://github.com/hoangduchuu/gitdesk/releases/latest).
+2. Open it and drag **GitDesk** into **Applications**.
+3. Opening it the first time is blocked. Go to **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to GitDesk. Or run:
+   ```bash
+   xattr -cr /Applications/GitDesk.app
+   ```
+
+Requires `git` on PATH.
+
+## Building a release
+
+```bash
+npm run dist       # produces dist/GitDesk-<version>-arm64.dmg
+gh release create v<version> dist/GitDesk-<version>-arm64.dmg --title "GitDesk <version>"
+```
+
 ## Requirements
 
 - Node.js 24 (`fnm use 24`)
