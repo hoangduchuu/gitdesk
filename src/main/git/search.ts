@@ -11,19 +11,21 @@ import { readCommits } from './log'
  * - `author`: author name or email contains the text (case-insensitive)
  * - `content`: the commit added or removed that exact text somewhere (git's pickaxe, `-S`)
  * - `path`: the commit touched this file, or any file inside this folder
+ *
+ * Aborting `signal` stops git and rejects: a pickaxe search over a large history can take minutes.
  */
-export function searchCommits(repoPath: string, mode: SearchMode, query: string, limit: number): Promise<Commit[]> {
+export function searchCommits(repoPath: string, mode: SearchMode, query: string, limit: number, signal?: AbortSignal): Promise<Commit[]> {
   if (query === '') throw new Error('Nothing to search for')
   // --exclude only affects the --all that comes after it.
   const base = ['--exclude=refs/stash', '--all', `--max-count=${limit}`]
   switch (mode) {
     case 'message':
-      return readCommits(repoPath, ['--fixed-strings', '--regexp-ignore-case', `--grep=${query}`, ...base])
+      return readCommits(repoPath, ['--fixed-strings', '--regexp-ignore-case', `--grep=${query}`, ...base], signal)
     case 'author':
-      return readCommits(repoPath, ['--fixed-strings', '--regexp-ignore-case', `--author=${query}`, ...base])
+      return readCommits(repoPath, ['--fixed-strings', '--regexp-ignore-case', `--author=${query}`, ...base], signal)
     case 'content':
-      return readCommits(repoPath, [`-S${query}`, ...base])
+      return readCommits(repoPath, [`-S${query}`, ...base], signal)
     case 'path':
-      return readCommits(repoPath, [...base, '--', `:(literal)${query}`])
+      return readCommits(repoPath, [...base, '--', `:(literal)${query}`], signal)
   }
 }

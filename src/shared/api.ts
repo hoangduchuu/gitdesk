@@ -94,6 +94,8 @@ export interface GitDeskApi {
    * `content` finds commits that added or removed it; `path` commits that touched a file or folder.
    */
   searchCommits(repo: string, mode: SearchMode, query: string, limit: number): Async<Commit[]>
+  /** Stop the search still running for this repository, if any. A newer search also replaces an older one. */
+  cancelSearch(repo: string): Async<null>
   getStatus(repo: string): Async<WorkingTreeStatus>
   getBranches(repo: string): Async<Branch[]>
   getStashes(repo: string): Async<Stash[]>
@@ -258,6 +260,7 @@ export const REPO_METHODS = [
   'getReflog',
   'undoLastAction',
   'searchCommits',
+  'cancelSearch',
   'getFileHistory',
   'getBlame',
   'getTags',

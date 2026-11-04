@@ -98,6 +98,8 @@ export function CommitGraph({ repo, rows, selectedHash, revealHash, picked, onSe
     return () => {
       stale = true
       window.clearTimeout(timer)
+      // Stop git too: a code-change search over a big history can run for minutes.
+      void api().cancelSearch(repo)
     }
   }, [repo, scope, query, searchOpen])
   const found = useMemo(() => new Set(remote.kind === 'ready' ? remote.commits.map((commit) => commit.hash) : []), [remote])

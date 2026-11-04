@@ -21,6 +21,8 @@ export interface RunOptions {
   input?: string
   /** Extra environment variables for this command only. */
   env?: Readonly<Record<string, string>>
+  /** Aborting kills the git process and rejects with a `GitError` whose stderr says so. */
+  signal?: AbortSignal
 }
 
 /**
@@ -40,11 +42,16 @@ export function runGit(
         cwd,
         maxBuffer: MAX_OUTPUT_BYTES,
         encoding: 'utf8',
-        env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_PAGER: 'cat', ...options.env }
+        env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_PAGER: 'cat', ...options.env },
+        ...(options.signal ? { signal: options.signal } : {})
       },
       (error, stdout, stderr) => {
         if (!error) {
           resolve(stdout)
+          return
+        }
+        if (error.name === 'AbortError') {
+          reject(new GitError(args, null, 'Cancelled'))
           return
         }
         const code = typeof error.code === 'number' ? error.code : null

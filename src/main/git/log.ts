@@ -28,8 +28,8 @@ const parseRecord = (record: string): Commit | null => {
 }
 
 /** Run `git log` with the given selection arguments and parse the commits. */
-export async function readCommits(repoPath: string, selection: readonly string[]): Promise<Commit[]> {
-  const out = await runGit(repoPath, ['log', '-z', '--decorate=full', `--format=${FORMAT}`, ...selection])
+export async function readCommits(repoPath: string, selection: readonly string[], signal?: AbortSignal): Promise<Commit[]> {
+  const out = await runGit(repoPath, ['log', '-z', '--decorate=full', `--format=${FORMAT}`, ...selection], signal ? { signal } : {})
   return out
     .split('\0')
     .filter((record) => record.length > 0)
