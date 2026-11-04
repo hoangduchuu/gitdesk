@@ -10,12 +10,14 @@
     "start": "electron-vite preview",
     "package": "electron-vite build && electron-builder --mac --dir",
     "typecheck": "tsc --noEmit",
+    "lint": "biome lint",
     "test": "vitest run",
     "postinstall": "node scripts/postinstall.cjs",
     "dist": "electron-vite build && electron-builder --mac",
     "release": "bash scripts/release.sh"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.6.4",
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

@@ -382,7 +382,7 @@ function Message({ node }: { node: GraphNode }) {
     const { added, modified, deleted, conflicted } = node.changes
     return (
       <span className="message">
-        <span className="wip-label">// WIP</span>
+        <span className="wip-label">{'// WIP'}</span>
         {modified > 0 && <Count kind="modified" value={modified} />}
         {added > 0 && <Count kind="added" value={added} />}
         {deleted > 0 && <Count kind="deleted" value={deleted} />}

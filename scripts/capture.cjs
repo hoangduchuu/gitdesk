@@ -69,7 +69,7 @@ app.on('browser-window-created', (_event, window) => {
         console.error('capture failed:', error.message ?? error)
         process.exitCode = 1
       } finally {
-        BrowserWindow.getAllWindows().forEach((w) => w.destroy())
+        for (const w of BrowserWindow.getAllWindows()) w.destroy()
         app.quit()
       }
     }, waitMs)

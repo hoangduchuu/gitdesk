@@ -2,6 +2,9 @@
 
 Currently: `tsc --noEmit` and vitest only; no linter, no `.github/`, no automated UI check. Releases are built locally (`scripts/release.sh`).
 
+## Status
+Step 1 done: Biome 2.6.4 (`biome.json`, `npm run lint`, lint only, formatter off). Passes with 0 errors and ~71 warnings: `useExhaustiveDependencies` (most are intentional "re-run when this changes" dependencies) and a11y rules are warnings, not errors; `noNonNullAssertion`, `useLiteralKeys`, `useTemplate`, `noArrayIndexKey`, `noControlCharactersInRegex` and `noDangerouslySetInnerHtml` (escaped highlight HTML) are off on purpose. Steps 2-4 not started.
+
 ## Steps
 1. **Lint.** Add Biome (single dev dependency, fast, formatting + lint) or ESLint + typescript-eslint. Start with the recommended rules, fix or disable noisy ones in the config rather than reformatting the whole repo in one commit; add `npm run lint`. Update `CLAUDE.md` commands.
 2. **CI workflow** `.github/workflows/ci.yml`: macOS runner (the app and `capture.cjs` are mac-oriented), Node from `.nvmrc`/package engines, `npm ci`, `npm run typecheck`, `npm test`, `npm run build`. Note the `postinstall` chmod of node-pty's `spawn-helper`.
