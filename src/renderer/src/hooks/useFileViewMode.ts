@@ -22,7 +22,7 @@ export function setFileViewMode(next: FileViewMode): void {
   } catch {
     // Storage can be unavailable; the choice then lasts for this session only.
   }
-  listeners.forEach((listener) => listener())
+  for (const listener of listeners) listener()
 }
 
 /** Tree or path view for every file list; shared app-wide and remembered between launches. */

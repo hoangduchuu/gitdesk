@@ -28,8 +28,14 @@ const explain = async (response: Response): Promise<string> => {
   const parts: string[] = []
   const add = (value: unknown): void => {
     if (typeof value === 'string') parts.push(value)
-    else if (Array.isArray(value)) value.forEach(add)
-    else if (value && typeof value === 'object') Object.entries(value).forEach(([key, inner]) => (typeof inner === 'string' || Array.isArray(inner) ? (parts.push(`${key}:`), add(inner)) : add(inner)))
+    else if (Array.isArray(value)) {
+      for (const item of value) add(item)
+    } else if (value && typeof value === 'object') {
+      for (const [key, inner] of Object.entries(value)) {
+        if (typeof inner === 'string' || Array.isArray(inner)) parts.push(`${key}:`)
+        add(inner)
+      }
+    }
   }
   add(body?.['message'])
   add(body?.['errors'])

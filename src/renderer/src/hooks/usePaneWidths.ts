@@ -28,7 +28,7 @@ const setWidths = (change: Partial<PaneWidths>): void => {
   } catch {
     // Not remembered between launches when storage is unavailable.
   }
-  listeners.forEach((listener) => listener())
+  for (const listener of listeners) listener()
 }
 
 /** Sidebar and details-panel widths, shared by every tab and remembered between launches. */

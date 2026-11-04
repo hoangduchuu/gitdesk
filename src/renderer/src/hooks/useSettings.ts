@@ -61,7 +61,7 @@ applyToDocument()
 window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener('change', () => {
   if (settings.theme !== 'system') return
   applyToDocument()
-  listeners.forEach((listener) => listener())
+  for (const listener of listeners) listener()
 })
 
 export function updateSettings(change: Partial<Settings>): void {
@@ -72,7 +72,7 @@ export function updateSettings(change: Partial<Settings>): void {
     // Storage can be unavailable; the change then lasts for this session only.
   }
   applyToDocument()
-  listeners.forEach((listener) => listener())
+  for (const listener of listeners) listener()
 }
 
 /** The theme actually in effect: "system" resolved to dark or light. */

@@ -12,7 +12,8 @@ npm run dev                        # hot-reload dev mode
 npm run build                      # electron-vite build -> out/
 npm test                           # vitest, all of tests/**/*.test.ts
 npx vitest run tests/stash.test.ts # single file; add -t "name" for a single test
-npm run typecheck                  # tsc --noEmit (no linter is configured)
+npm run typecheck                  # tsc --noEmit
+npm run lint                       # Biome lint only (formatter off); errors fail, warnings are known debt
 npm run package                    # macOS app in dist/mac-arm64/GitDesk.app
 npm run release -- [patch|minor|major|x.y.z] [--notes "..."] [--yes]   # see scripts/release.sh; needs clean, synced tree and `gh`
 ```
