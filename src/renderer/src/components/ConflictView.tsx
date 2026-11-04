@@ -7,7 +7,8 @@ import {
   selectedLines,
   type BlockChoice,
   type ConflictChoice,
-  type ConflictSegment
+  type ConflictSegment,
+  type LineChoice
 } from '../../../shared/conflict-markers'
 import type { ConflictDetail, ConflictSide } from '../../../shared/model'
 import { api, errorMessage, unwrap } from '../api'
@@ -86,6 +87,9 @@ export function ConflictView({ repo, path, controller, others, onOpenNext, onClo
     </section>
   )
 }
+
+const isLineChoice = (choice: BlockChoice | null | undefined): choice is LineChoice =>
+  typeof choice === 'object' && choice !== null
 
 const CHOICES: ReadonlyArray<
   [ConflictChoice, 'conflict.useCurrent' | 'conflict.useIncoming' | 'conflict.bothCurrentFirst' | 'conflict.bothIncomingFirst', IconName]
@@ -221,13 +225,13 @@ function ConflictEditor({ detail, onSave, t, tCount }: { detail: ConflictDetail;
                 )
               })}
             </div>
-            {typeof choices[block.index] === 'object' && (
+            {isLineChoice(choices[block.index]) && (
               <div className="conflict-order muted">
                 {t('conflict.order')}
-                <button type="button" className="ghost" onClick={() => setOrder(block, false)} aria-pressed={!(choices[block.index] as { theirsFirst: boolean }).theirsFirst}>
+                <button type="button" className="ghost" onClick={() => setOrder(block, false)} aria-pressed={!(choices[block.index] as LineChoice).theirsFirst}>
                   {t('conflict.currentFirst')}
                 </button>
-                <button type="button" className="ghost" onClick={() => setOrder(block, true)} aria-pressed={(choices[block.index] as { theirsFirst: boolean }).theirsFirst}>
+                <button type="button" className="ghost" onClick={() => setOrder(block, true)} aria-pressed={(choices[block.index] as LineChoice).theirsFirst}>
                   {t('conflict.incomingFirst')}
                 </button>
               </div>
