@@ -106,23 +106,33 @@ export async function installUpdate(
   const dmg = join(dir, 'GitDesk.dmg')
   await downloadFile(info.dmgUrl, dmg, onProgress)
   onProgress({ phase: 'installing' })
-  // Mount, copy next to the old app, swap, relaunch. If anything fails the old app stays.
+  // Wait for this process to exit (the bundle must not change under a running app), then mount,
+  // copy next to the old app, swap, relaunch. A failure puts the old app back and reopens it.
   sh(
-    `set -e
-     sleep 1
-     MOUNT=$(hdiutil attach "$1" -nobrowse -readonly | grep -o '/Volumes/.*' | head -1)
+    `LOG="$3/update.log"
+     exec >"$LOG" 2>&1
+     set -x
+     n=0
+     while kill -0 "$4" 2>/dev/null && [ $n -lt 100 ]; do sleep 0.2; n=$((n+1)); done
+     kill -9 "$4" 2>/dev/null || true
+     sleep 0.5
      NEW="$2.new"
-     rm -rf "$NEW"
-     cp -R "$MOUNT/GitDesk.app" "$NEW"
-     hdiutil detach "$MOUNT" -quiet || true
-     xattr -cr "$NEW"
-     rm -rf "$2"
-     mv "$NEW" "$2"
-     rm -rf "$3"
+     OLD="$2.old"
+     rm -rf "$NEW" "$OLD"
+     MOUNT=$(hdiutil attach "$1" -nobrowse -readonly | grep -o '/Volumes/.*' | head -1)
+     if [ -n "$MOUNT" ] && cp -R "$MOUNT/GitDesk.app" "$NEW"; then
+       hdiutil detach "$MOUNT" -quiet || true
+       xattr -cr "$NEW"
+       mv "$2" "$OLD" && mv "$NEW" "$2" && rm -rf "$OLD" || { rm -rf "$2"; mv "$OLD" "$2"; }
+     else
+       [ -n "$MOUNT" ] && hdiutil detach "$MOUNT" -quiet
+       rm -rf "$NEW"
+     fi
      open "$2"`,
     dmg,
     bundle,
-    dir
+    dir,
+    String(process.pid)
   )
   quit()
 }
