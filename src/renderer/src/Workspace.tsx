@@ -23,6 +23,8 @@ import { RebaseView } from './components/RebaseView'
 import { ReflogView } from './components/ReflogView'
 import { FileHistoryView } from './components/FileHistoryView'
 import { BlameView } from './components/BlameView'
+import { PullRequestDialog } from './components/PullRequestDialog'
+import { githubRemoteName } from '../../shared/remote-url'
 import { Icon } from './icons'
 import { SettingsDialog } from './components/SettingsDialog'
 import { Sidebar } from './components/Sidebar'
@@ -71,6 +73,8 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
   const [profilesOpen, setProfilesOpen] = useState(false)
   const [gitflowInit, setGitflowInit] = useState<GitflowState | null>(null)
   const [publishOpen, setPublishOpen] = useState(false)
+  const [prDialog, setPrDialog] = useState<{ head: string } | null>(null)
+  const [prVersion, setPrVersion] = useState(0)
   const [settingsOpen, setSettingsOpen] = useState(false)
   /** Bumped when the profiles dialog closes, so pickers reload. */
   const [profileVersion, setProfileVersion] = useState(0)
@@ -127,6 +131,8 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
     openRebase: (base) => setCenter({ kind: 'rebase', base }),
     openFileHistory: (filePath) => setCenter({ kind: 'history', path: filePath }),
     openBlame: (filePath) => setCenter({ kind: 'blame', path: filePath, rev: null }),
+    openPullRequestDialog: (head) => setPrDialog({ head }),
+    canPullRequest: githubRemoteName(data?.remotes.remotes ?? []) !== null,
     openGitflowInit: setGitflowInit,
     t,
     tCount
@@ -389,6 +395,11 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
             onRemoteMenu={(remote, event) => openMenu(actions.remoteMenu(remote), event)}
             onAddRemote={actions.promptAddRemote}
             onPublish={() => setPublishOpen(true)}
+            github={githubRemoteName(data.remotes.remotes) !== null}
+            repo={path}
+            prVersion={prVersion}
+            onPullRequestMenu={(pr, event) => openMenu(actions.pullRequestMenu(pr), event)}
+            onCreatePullRequest={() => status?.branch && setPrDialog({ head: status.branch })}
           />
         ) : (
           <nav className="sidebar" />
@@ -562,6 +573,23 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
           onClose={() => setPublishOpen(false)}
         />
       )}
+      {prDialog && data && (
+        <PullRequestDialog
+          head={prDialog.head}
+          notPushed={prDialog.head === status?.branch && status.upstream === null}
+          bases={pullRequestBases(data.branches, githubRemoteName(data.remotes.remotes))}
+          defaultTitle={data.commits.find((commit) => commit.hash === data.branches.find((branch) => branch.name === prDialog.head)?.hash)?.subject ?? ''}
+          onCreate={(input) => {
+            setPrDialog(null)
+            void run(t('pr.creating'), () => gitdesk.createPullRequest(path, input)).then((result) => {
+              if (!result.ok) return
+              setNotice(t('pr.created', { number: result.data.number, url: result.data.url }))
+              setPrVersion((version) => version + 1)
+            })
+          }}
+          onClose={() => setPrDialog(null)}
+        />
+      )}
       {gitflowInit && <GitflowInitDialog state={gitflowInit} onSubmit={saveGitflow} onClose={() => setGitflowInit(null)} />}
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
       {profilesOpen && (
@@ -576,6 +604,15 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
     </div>
   )
 }
+
+/** Branches of the GitHub remote, without the remote's name, for the "merge into" choice. */
+const pullRequestBases = (branches: readonly Branch[], remote: string | null): string[] =>
+  remote === null
+    ? []
+    : branches
+        .filter((branch) => branch.kind === 'remote' && branch.name.startsWith(`${remote}/`))
+        .map((branch) => branch.name.slice(remote.length + 1))
+        .filter((name) => name !== 'HEAD')
 
 /** Placeholder rows while the repository loads, so the layout does not jump. */
 function GraphSkeleton({ label }: { label: string }) {

@@ -10,6 +10,9 @@ List open PRs for the repo, create one for the current branch, and check out a P
 - Types in `src/shared/model.ts`: `PullRequest { number, title, author, head, base, url, draft }`.
 - UI: sidebar section "Pull requests" (beside Remotes/Tags/Stashes in `Sidebar.tsx`), a "Create pull request…" dialog (model on `PublishDialog.tsx`) from the branch context menu and after a push of a new branch.
 
+## Status
+Implemented for GitHub (steps 1-5): `src/main/pullRequests.ts` (list, create, checkout via `pull/<n>/head` into `pr-<n>`), `getPullRequests`/`createPullRequest`/`checkoutPullRequest` with validation, a sidebar "Pull requests" section (loaded on request, shown when a remote is on github.com), a create dialog (from the section's + or a local branch's menu; refuses an unpushed current branch), and a pull request menu (open on GitHub, check out, copy link). The device-flow scope `repo` already covers pull requests. Verified with an injected `fetch` and a local clone; not exercised against the real GitHub API (needs a connected account). GitLab/Bitbucket not covered.
+
 ## Steps
 1. **Provider layer + tests** with an injected `fetch` (the `updater.ts` pattern `request: typeof fetch = fetch`), covering list, create, 422 error text, 401.
 2. **API + validation** (`listPullRequests`, `createPullRequest`, `checkoutPullRequest`); handler tests; ensure the title/body length caps and that `head`/`base` are valid branch names.

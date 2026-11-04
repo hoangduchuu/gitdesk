@@ -1,5 +1,5 @@
 import type { ResetMode } from '../../shared/api'
-import type { Branch, GitflowKind, GitflowState, MergeOutcome, ReflogEntry, Remote, Stash, Tag, WorkingTreeStatus } from '../../shared/model'
+import type { Branch, GitflowKind, GitflowState, MergeOutcome, PullRequest, ReflogEntry, Remote, Stash, Tag, WorkingTreeStatus } from '../../shared/model'
 import { maskUrl } from '../../shared/remote-url'
 import type { Commit, Result } from '../../shared/types'
 import { branchDropActions, type DragBranch } from '../../shared/branch-drag'
@@ -25,6 +25,10 @@ export interface ActionContext {
   openFileHistory: (path: string) => void
   /** Show who last changed each line of a file in the centre panel. */
   openBlame: (path: string) => void
+  /** Show the dialog that opens a pull request from this branch. */
+  openPullRequestDialog: (head: string) => void
+  /** A remote is on github.com, so branches can offer "Create pull request". */
+  canPullRequest: boolean
   /** Show the dialog for the Git Flow branch names and prefixes. */
   openGitflowInit: (state: GitflowState) => void
   t: Translate
@@ -293,6 +297,14 @@ export function createActions(ctx: ActionContext) {
     action(t('menu.removeRemote', { name: remote.name }), () => removeRemote(remote), { icon: 'delete', danger: true })
   ]
 
+  // ---------- pull requests ----------
+  const pullRequestMenu = (pr: PullRequest): MenuItem[] => [
+    heading(`#${pr.number} ${pr.title}`),
+    action(t('pr.openInBrowser'), () => void window.open(pr.url), { icon: 'link' }),
+    action(t('pr.checkout', { branch: `pr-${pr.number}` }), () => void run(t('pr.checkingOut'), () => gitdesk.checkoutPullRequest(path, pr.number)), { icon: 'checkout' }),
+    action(t('menu.copyPrLink'), () => copy(pr.url, t('copy.prLink')), { icon: 'copy' })
+  ]
+
   // ---------- drag and drop ----------
   /** The menu shown when a branch is dropped on another: merge it in, or rebase it on top. */
   const branchDropMenu = (source: DragBranch, target: DragBranch, branches: readonly Branch[]): MenuItem[] => {
@@ -465,6 +477,9 @@ export function createActions(ctx: ActionContext) {
               ? [action(t('menu.deleteRemoteBranch', { name: branch.upstream }), () => deleteRemoteBranch(branch.upstream!), { icon: 'deleteRemote', danger: true })]
               : [])
           ]),
+      ...(!isRemote && ctx.canPullRequest
+        ? [separator, action(t('pr.createFrom', { name: branch.name }), () => ctx.openPullRequestDialog(branch.name), { icon: 'merge' })]
+        : []),
       separator,
       action(t('menu.copyBranchName'), () => copy(branch.name, t('copy.branchName')), { icon: 'copy' })
     ]
@@ -507,6 +522,7 @@ export function createActions(ctx: ActionContext) {
     gitflowMenu,
     branchDropMenu,
     commitMenu,
+    pullRequestMenu,
     undoLast,
     fileMenu,
     reflogMenu,

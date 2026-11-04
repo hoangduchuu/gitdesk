@@ -20,6 +20,8 @@ import type {
   UpdateInfo,
   PublishResult,
   ReflogEntry,
+  PullRequest,
+  CreatePullRequestInput,
   SearchMode,
   BlameLine,
   FileHistoryEntry,
@@ -140,6 +142,13 @@ export interface GitDeskApi {
   /** Create a repository on the profile's git provider, add it as a remote and push the current branch. */
   publishRepository(repo: string, input: PublishInput): Async<PublishResult>
 
+  /** Open pull requests of the GitHub repository this one is cloned from (needs the profile connected to GitHub). */
+  getPullRequests(repo: string): Async<PullRequest[]>
+  /** Open a pull request from a branch that is already pushed. */
+  createPullRequest(repo: string, input: CreatePullRequestInput): Async<PullRequest>
+  /** Fetch a pull request and switch to a local branch `pr-<number>` for it. */
+  checkoutPullRequest(repo: string, number: number): Async<null>
+
   fetch(repo: string): Async<null>
   pull(repo: string): Async<MergeOutcome>
   /** `force` replaces the remote branch, but only if nobody pushed to it since the last fetch. */
@@ -258,6 +267,9 @@ export const REPO_METHODS = [
   'resetTo',
   'checkoutCommit',
   'getReflog',
+  'getPullRequests',
+  'createPullRequest',
+  'checkoutPullRequest',
   'undoLastAction',
   'searchCommits',
   'cancelSearch',

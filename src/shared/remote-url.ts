@@ -12,6 +12,15 @@ export const guessProvider = (connection: ProfileAuth): GitProvider => {
   return host.includes('gitlab') ? 'gitlab' : 'gitea'
 }
 
+/** Name of the remote that points at github.com (`origin` if it does), or null: pull requests need one. */
+export const githubRemoteName = (remotes: ReadonlyArray<{ name: string; fetchUrl: string }>): string | null => {
+  const onGithub = remotes.filter((remote) => {
+    const address = parseRemoteUrl(remote.fetchUrl)
+    return address !== null && address.host === 'github.com' && !address.owner.includes('/')
+  })
+  return (onGithub.find((remote) => remote.name === 'origin') ?? onGithub[0])?.name ?? null
+}
+
 export interface RemoteAddress {
   host: string
   /** Everything before the repository name (an organization, or nested groups on GitLab). */

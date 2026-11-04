@@ -1,6 +1,7 @@
 import type { ResetMode, SelectionRequest } from '../shared/api'
 import type {
   Branch,
+  CreatePullRequestInput,
   ChangeKind,
   ConflictSide,
   DiffTarget,
@@ -40,6 +41,29 @@ export const MAX_SEARCH_QUERY = 500
 export const requireSearchQuery = (value: unknown): string => {
   const query = requireString(value, 'search text')
   return query.trim() === '' || query.length > MAX_SEARCH_QUERY || query.includes('\0') ? fail('search text') : query
+}
+
+const BRANCH_REF = /^[A-Za-z0-9._/-]{1,255}$/
+const requireBranchName = (value: unknown, what: string): string => {
+  const name = requireString(value, what)
+  return BRANCH_REF.test(name) && !name.startsWith('-') && !name.includes('..') ? name : fail(what)
+}
+
+const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/
+export const requirePullRequestInput = (value: unknown): CreatePullRequestInput => {
+  const input = value as Record<string, unknown> | null
+  if (!input || typeof input !== 'object') return fail('pull request')
+  const title = requireString(input['title'], 'pull request title').trim()
+  const body = requireString(input['body'], 'pull request description')
+  if (title === '' || title.length > 256 || CONTROL.test(title) || title.includes('\n')) return fail('pull request title')
+  if (body.length > 65_536 || CONTROL.test(body)) return fail('pull request description')
+  return {
+    title,
+    body,
+    head: requireBranchName(input['head'], 'pull request branch'),
+    base: requireBranchName(input['base'], 'pull request base branch'),
+    draft: requireBoolean(input['draft'], 'draft flag')
+  }
 }
 
 export const requireHash = (value: unknown): string => {

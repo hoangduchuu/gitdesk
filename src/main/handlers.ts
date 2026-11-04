@@ -32,6 +32,7 @@ import { undoLastAction } from './git/undo'
 import { rewordCommit } from './git/reword'
 import { addRemote, fetch, pull, push, readRemotes, removeRemote, setRemoteUrl } from './git/remote'
 import { publishRepository } from './publish'
+import { checkoutPullRequest, createPullRequest, githubTarget, listPullRequests } from './pullRequests'
 import { readStashes, requireStashRef, stashApply, stashDrop, stashPop, stashPush } from './git/stash'
 import { readStatus } from './git/status'
 import { commit, discard, gitIdentity, stage, unstage } from './git/worktree'
@@ -57,6 +58,7 @@ import {
   requireInteger,
   requireNullableHash,
   requirePaths,
+  requirePullRequestInput,
   requireRepoPath,
   requireSearchMode,
   requireSearchQuery,
@@ -107,6 +109,17 @@ export const createHandlers = (
   /** Remote commands authenticate as the profile the repository commits with. */
   const remoteEnv = async (repo: string): Promise<Record<string, string>> =>
     credentials ? credentials.gitEnv((await profiles.repoProfile(repo))?.id ?? null) : {}
+  /** The profile's GitHub connection and the GitHub repository this clone talks to. */
+  const githubAccess = async (repo: string) => {
+    const target = githubTarget(await readRemotes(repo))
+    if (target === null) throw new Error('Pull requests need a remote on github.com')
+    const profile = await profiles.repoProfile(repo)
+    const access = credentials ? await credentials.accessFor(profile?.id ?? null) : null
+    if (access === null || access.host !== 'github.com') {
+      throw new Error('Connect the profile this repository commits as to GitHub first (Profiles), then choose it under "Commit as".')
+    }
+    return { access, target }
+  }
   return {
   getLog: async (repo, limit) => readLog(repo, requireInteger(limit, 'log limit', 1, MAX_LOG_LIMIT)),
   getStatus: async (repo) => readStatus(repo),
@@ -230,6 +243,20 @@ export const createHandlers = (
       throw new Error('Connect the profile this repository commits as to GitHub or a git server first (Profiles), then choose it under "Commit as".')
     }
     return publishRepository(repo, request, access, await remoteEnv(repo))
+  },
+
+  getPullRequests: async (repo) => {
+    const { access, target } = await githubAccess(repo)
+    return listPullRequests(access, target)
+  },
+  createPullRequest: async (repo, input) => {
+    const request = requirePullRequestInput(input)
+    const { access, target } = await githubAccess(repo)
+    return createPullRequest(access, target, request)
+  },
+  checkoutPullRequest: async (repo, number) => {
+    const { target } = await githubAccess(repo)
+    return done(checkoutPullRequest(repo, target.remote, requireInteger(number, 'pull request number', 1, 100_000_000), await remoteEnv(repo)))
   },
 
   fetch: async (repo) => done(fetch(repo, { env: await remoteEnv(repo) })),

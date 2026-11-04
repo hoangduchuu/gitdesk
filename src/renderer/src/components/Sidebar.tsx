@@ -2,7 +2,8 @@ import { useState, type MouseEvent } from 'react'
 import type { BranchDrop } from '../branchDrag'
 import { keyboardActivatable } from '../a11y'
 import { useBranchDnd } from '../branchDrag'
-import type { Branch, Remote, Stash, Tag } from '../../../shared/model'
+import type { Branch, PullRequest, Remote, Stash, Tag } from '../../../shared/model'
+import { PullRequestsSection } from './PullRequestsSection'
 import { maskUrl } from '../../../shared/remote-url'
 import { useT } from '../i18n'
 import { Icon } from '../icons'
@@ -26,12 +27,20 @@ interface Props {
   onAddRemote: () => void
   /** The repository has no remote: offer to create one. */
   onPublish: () => void
+  /** Some remote is on github.com, so pull requests are available. */
+  github: boolean
+  repo: string
+  /** Changes when the pull request list should be fetched again. */
+  prVersion: number
+  onPullRequestMenu: (pr: PullRequest, event: MouseEvent) => void
+  onCreatePullRequest: () => void
 }
 
 export function Sidebar(props: Props) {
   const t = useT()
   const { branches, stashes, tags, remotes, selectedStash, onSelectBranch, onCheckout, onSelectStash } = props
   const { onSelectTag, onBranchMenu, onTagMenu, onStashMenu, onBranchDrop, onRemoteMenu, onAddRemote, onPublish } = props
+  const { github, repo, prVersion, onPullRequestMenu, onCreatePullRequest } = props
   const [query, setQuery] = useState('')
   const needle = query.trim().toLowerCase()
   const matches = (name: string): boolean => needle === '' || name.toLowerCase().includes(needle)
@@ -105,6 +114,8 @@ export function Sidebar(props: Props) {
           </li>
         ))}
       </ul>
+
+      {github && <PullRequestsSection repo={repo} version={prVersion} onMenu={onPullRequestMenu} onCreate={onCreatePullRequest} />}
 
       <h3 className="sidebar-heading"><Icon name="tag" size={14} />{t('sidebar.tags', { count: tags.length })}</h3>
       <ul className="sidebar-list">
