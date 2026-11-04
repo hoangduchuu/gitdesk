@@ -28,6 +28,7 @@ import { readCommitDetails, readFileHistory, readLog } from './git/log'
 import { readReflog } from './git/reflog'
 import { readBlame } from './git/blame'
 import { searchCommits } from './git/search'
+import { addWorktree, pruneWorktrees, readWorktrees, removeWorktree } from './git/worktrees'
 import { undoLastAction } from './git/undo'
 import { rewordCommit } from './git/reword'
 import { addRemote, fetch, pull, push, readRemotes, removeRemote, setRemoteUrl } from './git/remote'
@@ -42,6 +43,7 @@ import type { ProfileStore } from './profiles'
 import type { TerminalManager } from './terminal'
 import {
   requireBoolean,
+  requireAbsolutePath,
   requireBranchKind,
   requireDiffTarget,
   requireFileChanges,
@@ -145,6 +147,11 @@ export const createHandlers = (
     return null
   },
   undoLastAction: async (repo) => done(undoLastAction(repo)),
+  getWorktrees: async (repo) => readWorktrees(repo),
+  addWorktree: async (repo, path, branch, create) =>
+    done(addWorktree(repo, requireAbsolutePath(path), requireString(branch, 'branch name'), requireBoolean(create, 'create flag'))),
+  removeWorktree: async (repo, path, force) => done(removeWorktree(repo, requireAbsolutePath(path), requireBoolean(force, 'force flag'))),
+  pruneWorktrees: async (repo) => done(pruneWorktrees(repo)),
   getReflog: async (repo, limit) => readReflog(repo, requireInteger(limit, 'reflog limit', 1, MAX_LOG_LIMIT)),
   getCommitDetails: async (repo, hash) => readCommitDetails(repo, requireHash(hash)),
   getAvatars: async (repo, hash, emails, gravatar) => {

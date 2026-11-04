@@ -2,7 +2,7 @@ import { useState, type MouseEvent } from 'react'
 import type { BranchDrop } from '../branchDrag'
 import { keyboardActivatable } from '../a11y'
 import { useBranchDnd } from '../branchDrag'
-import type { Branch, PullRequest, Remote, Stash, Tag } from '../../../shared/model'
+import type { Branch, PullRequest, Remote, Stash, Tag, Worktree } from '../../../shared/model'
 import { PullRequestsSection } from './PullRequestsSection'
 import { maskUrl } from '../../../shared/remote-url'
 import { useT } from '../i18n'
@@ -34,6 +34,12 @@ interface Props {
   prVersion: number
   onPullRequestMenu: (pr: PullRequest, event: MouseEvent) => void
   onCreatePullRequest: () => void
+  worktrees: readonly Worktree[]
+  /** Path of the working tree shown in this tab. */
+  currentPath: string
+  onWorktreeMenu: (worktree: Worktree, event: MouseEvent) => void
+  onOpenWorktree: (worktree: Worktree) => void
+  onAddWorktree: () => void
 }
 
 export function Sidebar(props: Props) {
@@ -41,6 +47,7 @@ export function Sidebar(props: Props) {
   const { branches, stashes, tags, remotes, selectedStash, onSelectBranch, onCheckout, onSelectStash } = props
   const { onSelectTag, onBranchMenu, onTagMenu, onStashMenu, onBranchDrop, onRemoteMenu, onAddRemote, onPublish } = props
   const { github, repo, prVersion, onPullRequestMenu, onCreatePullRequest } = props
+  const { worktrees, currentPath, onWorktreeMenu, onOpenWorktree, onAddWorktree } = props
   const [query, setQuery] = useState('')
   const needle = query.trim().toLowerCase()
   const matches = (name: string): boolean => needle === '' || name.toLowerCase().includes(needle)
@@ -111,6 +118,28 @@ export function Sidebar(props: Props) {
           <li key={remote.name} className="sidebar-item" onContextMenu={(event) => onRemoteMenu(remote, event)} title={`${maskUrl(remote.fetchUrl)}\n${t('sidebar.rightClickActions')}`}>
             <span className="item-name">{remote.name}</span>
             <span className="count remote-url">{maskUrl(remote.fetchUrl)}</span>
+          </li>
+        ))}
+      </ul>
+
+      <h3 className="sidebar-heading">
+        <Icon name="open" size={14} />
+        {t('worktree.heading', { count: worktrees.length })}
+        <button type="button" className="sidebar-add" onClick={onAddWorktree} title={t('worktree.new')} aria-label={t('worktree.new')}>
+          <Icon name="stage" size={14} />
+        </button>
+      </h3>
+      <ul className="sidebar-list">
+        {worktrees.filter((worktree) => matches(worktree.branch ?? worktree.path)).map((worktree) => (
+          <li
+            key={worktree.path}
+            className={`sidebar-item${worktree.path === currentPath ? ' current' : ''}`}
+            onContextMenu={(event) => onWorktreeMenu(worktree, event)}
+            onDoubleClick={() => worktree.path !== currentPath && !worktree.prunable && onOpenWorktree(worktree)}
+            title={`${worktree.path}\n${t('sidebar.rightClickActions')}`}
+          >
+            <span className="item-name">{worktree.branch ?? t('toolbar.detachedHead')}</span>
+            <span className="count remote-url">{worktree.prunable ? t('worktree.missing') : worktree.main ? t('worktree.main') : worktree.path.slice(worktree.path.lastIndexOf('/') + 1)}</span>
           </li>
         ))}
       </ul>

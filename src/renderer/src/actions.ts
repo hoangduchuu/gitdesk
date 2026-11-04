@@ -1,5 +1,5 @@
 import type { ResetMode } from '../../shared/api'
-import type { Branch, GitflowKind, GitflowState, MergeOutcome, PullRequest, ReflogEntry, Remote, Stash, Tag, WorkingTreeStatus } from '../../shared/model'
+import type { Branch, GitflowKind, GitflowState, MergeOutcome, PullRequest, ReflogEntry, Remote, Stash, Tag, WorkingTreeStatus, Worktree } from '../../shared/model'
 import { maskUrl } from '../../shared/remote-url'
 import type { Commit, Result } from '../../shared/types'
 import { branchDropActions, type DragBranch } from '../../shared/branch-drag'
@@ -29,6 +29,8 @@ export interface ActionContext {
   openPullRequestDialog: (head: string) => void
   /** A remote is on github.com, so branches can offer "Create pull request". */
   canPullRequest: boolean
+  /** Open another working tree of this repository in a new tab. */
+  openWorktree: (path: string) => void
   /** Show the dialog for the Git Flow branch names and prefixes. */
   openGitflowInit: (state: GitflowState) => void
   t: Translate
@@ -297,6 +299,50 @@ export function createActions(ctx: ActionContext) {
     action(t('menu.removeRemote', { name: remote.name }), () => removeRemote(remote), { icon: 'delete', danger: true })
   ]
 
+  // ---------- worktrees ----------
+  /** A folder next to the repository, named after it and the branch: `<repo>-<branch>`. */
+  const defaultWorktreePath = (branch: string): string => {
+    const cut = path.lastIndexOf('/')
+    const parent = cut > 0 ? path.slice(0, cut) : ''
+    const name = path.slice(cut + 1)
+    return `${parent}/${name}-${branch.replace(/[^A-Za-z0-9._-]+/g, '-')}`
+  }
+  const addWorktree = (branch: string, create: boolean): void =>
+    ctx.prompt({
+      title: t('worktree.addTitle', { branch }),
+      label: t('worktree.folder'),
+      initial: defaultWorktreePath(branch),
+      submitLabel: t('worktree.add'),
+      onSubmit: (folder) => void run(t('worktree.adding'), () => gitdesk.addWorktree(path, folder.trim(), branch, create))
+    })
+  /** Sidebar "+": ask for a new branch name, then the folder. */
+  const promptNewWorktree = (): void =>
+    ctx.prompt({
+      title: t('worktree.newTitle'),
+      label: t('worktree.newBranch', { branch: current }),
+      submitLabel: t('common.next'),
+      onSubmit: (name) => addWorktree(name.trim(), true)
+    })
+  const removeWorktree = async (worktree: Worktree): Promise<void> => {
+    if (!(await confirm(t('worktree.removeConfirm', { path: worktree.path }), { danger: true }))) return
+    void run(t('worktree.removing'), async () => {
+      const result = await gitdesk.removeWorktree(path, worktree.path, false)
+      if (result.ok || !/modified or untracked files|--force/.test(result.error)) return result
+      return (await confirm(t('worktree.forceRemoveConfirm', { path: worktree.path }), { danger: true }))
+        ? gitdesk.removeWorktree(path, worktree.path, true)
+        : { ok: true as const, data: null }
+    })
+  }
+  const worktreeMenu = (worktree: Worktree): MenuItem[] => [
+    heading(worktree.branch ?? short(worktree.head)),
+    action(t('worktree.open'), () => ctx.openWorktree(worktree.path), { icon: 'open', disabled: worktree.path === path || worktree.prunable }),
+    action(t('worktree.copyPath'), () => copy(worktree.path, t('copy.folderPath')), { icon: 'copy' }),
+    separator,
+    ...(worktree.prunable
+      ? [action(t('worktree.prune'), () => void run(t('worktree.pruning'), () => gitdesk.pruneWorktrees(path)), { icon: 'delete' })]
+      : [action(t('worktree.remove'), () => removeWorktree(worktree), { icon: 'delete', danger: true, disabled: worktree.main || worktree.path === path })])
+  ]
+
   // ---------- pull requests ----------
   const pullRequestMenu = (pr: PullRequest): MenuItem[] => [
     heading(`#${pr.number} ${pr.title}`),
@@ -477,6 +523,7 @@ export function createActions(ctx: ActionContext) {
               ? [action(t('menu.deleteRemoteBranch', { name: branch.upstream }), () => deleteRemoteBranch(branch.upstream!), { icon: 'deleteRemote', danger: true })]
               : [])
           ]),
+      ...(!isRemote ? [action(t('worktree.createFrom', { name: branch.name }), () => addWorktree(branch.name, false), { icon: 'open', disabled: branch.isHead })] : []),
       ...(!isRemote && ctx.canPullRequest
         ? [separator, action(t('pr.createFrom', { name: branch.name }), () => ctx.openPullRequestDialog(branch.name), { icon: 'merge' })]
         : []),
@@ -522,6 +569,8 @@ export function createActions(ctx: ActionContext) {
     gitflowMenu,
     branchDropMenu,
     commitMenu,
+    worktreeMenu,
+    promptNewWorktree,
     pullRequestMenu,
     undoLast,
     fileMenu,

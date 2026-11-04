@@ -12,6 +12,7 @@ import type { CloneProfile, RecentRepo, Workspace } from '../shared/api'
 import type { RepoInfo, Result } from '../shared/types'
 import { cloneRepository } from './git/clone'
 import { resolveRepo } from './git/repo'
+import { findWorktree } from './git/worktrees'
 import { AvatarService } from './avatars'
 import { Credentials } from './credentials'
 import { createHandlers } from './handlers'
@@ -130,6 +131,15 @@ function registerIpc(window: BrowserWindow): void {
       const folder = requireString(path, 'repository path')
       if (!(await workspace.knows(folder))) throw new Error('Repository is not in the recent list')
       return openRepo(folder)
+    })
+  )
+
+  ipcMain.handle(channelFor('openWorktree'), (_event, repo: unknown, path: unknown) =>
+    toResult(async () => {
+      const base = requireOpenedRepo(repo)
+      const worktree = await findWorktree(base, requireString(path, 'worktree path'))
+      if (worktree === null) throw new Error('That folder is not a worktree of this repository')
+      return openRepo(worktree.path)
     })
   )
 
