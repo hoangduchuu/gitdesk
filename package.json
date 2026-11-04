@@ -1,6 +1,6 @@
 {
   "name": "gitdesk",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "private": true,
   "description": "Local-first desktop Git client",
   "engines": {
