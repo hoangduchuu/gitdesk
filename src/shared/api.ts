@@ -20,6 +20,7 @@ import type {
   UpdateInfo,
   PublishResult,
   ReflogEntry,
+  SearchMode,
   BlameLine,
   FileHistoryEntry,
   RemoteState,
@@ -88,6 +89,11 @@ export interface GitDeskApi {
   removeProfileAuth(profileId: string): Async<null>
 
   getLog(repo: string, limit: number): Async<Commit[]>
+  /**
+   * Search the whole history, beyond what the graph has loaded. The text is taken literally.
+   * `content` finds commits that added or removed it; `path` commits that touched a file or folder.
+   */
+  searchCommits(repo: string, mode: SearchMode, query: string, limit: number): Async<Commit[]>
   getStatus(repo: string): Async<WorkingTreeStatus>
   getBranches(repo: string): Async<Branch[]>
   getStashes(repo: string): Async<Stash[]>
@@ -248,6 +254,7 @@ export const REPO_METHODS = [
   'resetTo',
   'checkoutCommit',
   'getReflog',
+  'searchCommits',
   'getFileHistory',
   'getBlame',
   'getTags',

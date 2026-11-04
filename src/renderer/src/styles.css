@@ -2753,3 +2753,9 @@ img.avatar {
   white-space: pre;
   padding: 0 8px;
 }
+.graph-search select { max-width: 190px; }
+.graph-older { max-height: 140px; overflow: auto; padding: 6px 12px; border-bottom: 1px solid var(--border); background: var(--bg-raised); }
+.graph-older ul { list-style: none; margin: 4px 0 0; padding: 0; }
+.graph-older button { display: flex; gap: 10px; width: 100%; text-align: left; }
+.graph-older button.selected { background: var(--bg-selected); }
+.graph-older-subject { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

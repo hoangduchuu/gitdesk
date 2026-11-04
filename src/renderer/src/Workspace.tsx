@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } fr
 import { layoutGraph } from '../../shared/graph'
 import { buildGraphNodes, WIP_HASH, type GraphNode } from '../../shared/graph-nodes'
 import type { Branch, DiffTarget, GitflowConfig, GitflowState, PublishInput } from '../../shared/model'
-import type { RepoInfo } from '../../shared/types'
+import type { Commit, RepoInfo } from '../../shared/types'
 import { createActions } from './actions'
 import { api } from './api'
 import type { BranchDrop } from './branchDrag'
@@ -303,8 +303,17 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
         }
       : undefined
 
+  // A search can find commits older than the loaded history: they have no graph row, only details.
+  const [olderCommit, setOlderCommit] = useState<Commit | null>(null)
+  const openOlderCommit = (commit: Commit): void => {
+    setPicked(new Set())
+    setOlderCommit(commit)
+    setSelection({ kind: 'commit', hash: commit.hash })
+  }
   const selectedCommit =
-    selection?.kind === 'commit' ? data?.commits.find((commit) => commit.hash === selection.hash) ?? null : null
+    selection?.kind === 'commit'
+      ? data?.commits.find((commit) => commit.hash === selection.hash) ?? (olderCommit?.hash === selection.hash ? olderCommit : null)
+      : null
   const selectedStash =
     selection?.kind === 'stash' ? data?.stashes.find((stash) => stash.hash === selection.hash) ?? null : null
   const centerKey = center.kind === 'diff' ? center.key : center.kind === 'conflict' ? `conflict:${center.path}` : null
@@ -406,6 +415,7 @@ export function Workspace({ repo, active, onOpen, onSwitchRepo }: Props) {
               onSelect={selectNode}
               onContextMenu={nodeMenu}
               onBranchDrop={branchDrop}
+              onOpenOlder={openOlderCommit}
               searchTick={searchTick}
             />
           )}
