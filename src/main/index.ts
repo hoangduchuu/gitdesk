@@ -12,6 +12,7 @@ import type { CloneProfile, RecentRepo, Workspace } from '../shared/api'
 import type { RepoInfo, Result } from '../shared/types'
 import { cloneRepository } from './git/clone'
 import { resolveRepo } from './git/repo'
+import { readSubmodules } from './git/submodules'
 import { findWorktree } from './git/worktrees'
 import { AvatarService } from './avatars'
 import { Credentials } from './credentials'
@@ -143,6 +144,16 @@ function registerIpc(window: BrowserWindow): void {
     })
   )
 
+  ipcMain.handle(channelFor('openSubmodule'), (_event, repo: unknown, path: unknown) =>
+    toResult(async () => {
+      const base = requireOpenedRepo(repo)
+      const wanted = requireString(path, 'submodule path')
+      const submodule = (await readSubmodules(base)).find((candidate) => candidate.path === wanted)
+      if (!submodule || submodule.state === 'uninitialized') throw new Error('That submodule is not cloned yet')
+      return openRepo(join(base, submodule.path))
+    })
+  )
+
   ipcMain.handle(channelFor('saveTabs'), (_event, paths: unknown, active: unknown) =>
     toResult(async () => {
       const tabs = requireTabs(paths)
@@ -202,9 +213,10 @@ function registerIpc(window: BrowserWindow): void {
       })
     })
   )
-  ipcMain.handle(channelFor('cloneRepository'), (_event, url: unknown, profileId: unknown) =>
+  ipcMain.handle(channelFor('cloneRepository'), (_event, url: unknown, profileId: unknown, recurse: unknown) =>
     toResult(async () => {
       const address = requireString(url, 'repository URL')
+      if (typeof recurse !== 'boolean') throw new Error('Invalid submodule flag')
       const id = profileId === null ? null : await requireProfile(profileId)
       const picked = await dialog.showOpenDialog(window, {
         title: 'Clone into folder',
@@ -214,7 +226,7 @@ function registerIpc(window: BrowserWindow): void {
       const parent = picked.filePaths[0]
       if (picked.canceled || parent === undefined) return null
       const env = await credentials.gitEnv(id)
-      const folder = await cloneRepository(address, parent, env, id !== null)
+      const folder = await cloneRepository(address, parent, env, id !== null, recurse)
       const repo = await openRepo(folder)
       if (id !== null) await profiles.setRepoProfile(repo.path, id)
       return repo

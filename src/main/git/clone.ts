@@ -20,7 +20,9 @@ export async function cloneRepository(
   parent: string,
   env: Readonly<Record<string, string>> = {},
   /** True when a profile's credentials were supplied, which changes the advice on failure. */
-  authenticated = false
+  authenticated = false,
+  /** Also clone the repository's submodules. */
+  recurseSubmodules = false
 ): Promise<string> {
   const address = requireRemoteUrl(url)
   const target = join(parent, repoNameFromUrl(address))
@@ -28,7 +30,7 @@ export async function cloneRepository(
   if (exists) throw new Error(`The folder ${target} already exists`)
   try {
     // `--` keeps the address from ever being read as an option.
-    await runGit(parent, ['clone', '--', address, target], { env })
+    await runGit(parent, ['clone', ...(recurseSubmodules ? ['--recurse-submodules'] : []), '--', address, target], { env })
   } catch (error) {
     if (error instanceof GitError && AUTH_FAILURE.test(error.stderr)) {
       throw new Error(

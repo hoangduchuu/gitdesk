@@ -30,6 +30,7 @@ import type {
   RebaseStep,
   Stash,
   StashFile,
+  Submodule,
   Tag,
   WorkingTreeStatus,
   Worktree
@@ -71,12 +72,14 @@ export interface GitDeskApi {
    * Ask for a destination folder, clone `url` into it and open the result (null if the folder
    * dialog is cancelled). A private repository needs `profileId`, a profile connected to its host.
    */
-  cloneRepository(url: string, profileId: string | null): Async<RepoInfo | null>
+  cloneRepository(url: string, profileId: string | null, recurseSubmodules: boolean): Async<RepoInfo | null>
   /** Tabs restored from the last session, plus any repository passed with --repo=<path>. */
   getWorkspace(): Async<Workspace>
   getRecentRepos(): Async<RecentRepo[]>
   /** Reopen a repository from the recent list or saved tabs, without a dialog. */
   openRecentRepo(path: string): Async<RepoInfo>
+  /** Open a cloned submodule of an opened repository as a repository of its own. */
+  openSubmodule(repo: string, path: string): Async<RepoInfo>
   /** Open a worktree of an opened repository as a repository of its own. */
   openWorktree(repo: string, path: string): Async<RepoInfo>
   /** Remember the open tabs (repository paths, left to right) and the selected one. */
@@ -106,6 +109,10 @@ export interface GitDeskApi {
   getStashes(repo: string): Async<Stash[]>
   /** The repository's working trees: the main one and the ones added with `git worktree add`. */
   getWorktrees(repo: string): Async<Worktree[]>
+  /** Submodules with their state; empty when there are none. */
+  getSubmodules(repo: string): Async<Submodule[]>
+  /** Clone what is missing and check out the recorded commits: one submodule, or all when `path` is null. */
+  updateSubmodules(repo: string, path: string | null): Async<null>
   /** Check out a branch in a new folder; `create` makes `branch` new from the current HEAD. */
   addWorktree(repo: string, path: string, branch: string, create: boolean): Async<null>
   /** Delete a linked worktree's folder; local changes there are lost only with `force`. */
@@ -228,6 +235,7 @@ export const APP_METHODS = [
   'getRecentRepos',
   'openRecentRepo',
   'openWorktree',
+  'openSubmodule',
   'saveTabs',
   'getProfileAuth',
   'githubLoginStart',
@@ -280,6 +288,8 @@ export const REPO_METHODS = [
   'checkoutCommit',
   'getReflog',
   'getWorktrees',
+  'getSubmodules',
+  'updateSubmodules',
   'addWorktree',
   'removeWorktree',
   'pruneWorktrees',

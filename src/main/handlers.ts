@@ -28,6 +28,7 @@ import { readCommitDetails, readFileHistory, readLog } from './git/log'
 import { readReflog } from './git/reflog'
 import { readBlame } from './git/blame'
 import { searchCommits } from './git/search'
+import { readSubmodules, updateSubmodules } from './git/submodules'
 import { addWorktree, pruneWorktrees, readWorktrees, removeWorktree } from './git/worktrees'
 import { undoLastAction } from './git/undo'
 import { rewordCommit } from './git/reword'
@@ -148,6 +149,9 @@ export const createHandlers = (
   },
   undoLastAction: async (repo) => done(undoLastAction(repo)),
   getWorktrees: async (repo) => readWorktrees(repo),
+  getSubmodules: async (repo) => readSubmodules(repo),
+  updateSubmodules: async (repo, path) =>
+    done(updateSubmodules(repo, path === null ? null : requireRepoPath(repo, path), { env: await remoteEnv(repo) })),
   addWorktree: async (repo, path, branch, create) =>
     done(addWorktree(repo, requireAbsolutePath(path), requireString(branch, 'branch name'), requireBoolean(create, 'create flag'))),
   removeWorktree: async (repo, path, force) => done(removeWorktree(repo, requireAbsolutePath(path), requireBoolean(force, 'force flag'))),

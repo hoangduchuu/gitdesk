@@ -40,6 +40,8 @@ describe('IPC handler validation', () => {
     ['worktree with a non-boolean create flag', () => handlers.addWorktree(repo, '/tmp/x', 'x', 'yes'), 'Invalid create flag'],
     ['removing a worktree at a relative path', () => handlers.removeWorktree(repo, '../x', false), 'Invalid folder path'],
     ['removing a folder that is not a worktree', () => handlers.removeWorktree(repo, '/tmp', false), 'not a worktree'],
+    ['updating a submodule outside the repo', () => handlers.updateSubmodules(repo, '../x'), 'outside the repository'],
+    ['updating a folder that is not a submodule', () => handlers.updateSubmodules(repo, 'src'), 'not a submodule'],
     ['getReflog with a zero limit', () => handlers.getReflog(repo, 0), 'Invalid reflog limit'],
     ['stage outside the repo', () => handlers.stage(repo, ['../escape.txt']), 'outside the repository'],
     ['stage with an absolute path', () => handlers.stage(repo, ['/etc/hosts']), 'Invalid repository path'],
@@ -119,6 +121,10 @@ describe('IPC handler validation', () => {
 
     await handlers.removeWorktree(repo, path, false)
     expect(await handlers.getWorktrees(repo)).toHaveLength(1)
+  })
+
+  test('lists no submodules for a plain repository', async () => {
+    expect(await handlers.getSubmodules(repo)).toEqual([])
   })
 
   test('passes valid input through', async () => {
