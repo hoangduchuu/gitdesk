@@ -26,13 +26,13 @@ git init -q -b main /tmp/demo && (cd /tmp/demo && echo hi>a.txt && git add . && 
 $E scripts/capture.cjs --repo=/tmp/demo --out=/tmp/gitdesk.png
 
 # drive the UI, then screenshot
-$E scripts/capture.cjs --repo=/tmp/demo --out=/tmp/after.png --script=.claude/skills/run-gitdesk/flow-commit.js
+$E scripts/capture.cjs --repo=/tmp/demo --out=/tmp/after.png --script=scripts/e2e/flow-commit.js
 git -C /tmp/demo log --oneline     # shows "commit from driver"
 ```
 
 Options: `--wait=<ms>` (settle time, default 2500), `--user-data=<dir>` (default: fresh temp dir, so the real settings are never touched and it runs alongside an open GitDesk).
 
-Flow scripts are the body of an async function run in the page. Helpers: `sleep(ms)`, `find(selector, textPrefix?)`, `click(selector, textPrefix?)`, `type(selector, value)` (works with React inputs). The return value is printed as `script result: ...`. See `flow-commit.js`.
+Flow scripts are the body of an async function run in the page. Helpers: `sleep(ms)`, `find(selector, textPrefix?)`, `click(selector, textPrefix?)`, `type(selector, value)` (works with React inputs). The return value is printed as `script result: ...`. See `scripts/e2e/flow-commit.js`; `npm run e2e` runs it as a pass/fail smoke test (`scripts/e2e/smoke.cjs`).
 
 Useful selectors: `.wip-label` (WIP row in the graph, opens the Changes panel), `.changes-panel .heading-actions button` ("Stage all" / "Discard all"), `.commit-box textarea`, `.commit-actions button` ("Commit N files"). Button text is i18n (`src/renderer/src/i18n/en.ts`).
 

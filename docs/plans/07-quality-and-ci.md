@@ -3,7 +3,11 @@
 Currently: `tsc --noEmit` and vitest only; no linter, no `.github/`, no automated UI check. Releases are built locally (`scripts/release.sh`).
 
 ## Status
-Step 1 done: Biome 2.6.4 (`biome.json`, `npm run lint`, lint only, formatter off). Passes with 0 errors and ~71 warnings: `useExhaustiveDependencies` (most are intentional "re-run when this changes" dependencies) and a11y rules are warnings, not errors; `noNonNullAssertion`, `useLiteralKeys`, `useTemplate`, `noArrayIndexKey`, `noControlCharactersInRegex` and `noDangerouslySetInnerHtml` (escaped highlight HTML) are off on purpose. Steps 2-4 not started.
+All four steps done, with one thing unverified: the CI workflow has never run on GitHub.
+1. Lint: Biome 2.6.4 (`biome.json`, `npm run lint`; lint only, formatter off). 0 errors, ~76 warnings: `useExhaustiveDependencies` (mostly intentional "re-run when this changes" dependencies) and a11y rules are warnings; `noNonNullAssertion`, `useLiteralKeys`, `useTemplate`, `noArrayIndexKey`, `noControlCharactersInRegex` and `noDangerouslySetInnerHtml` (escaped highlight HTML) are off on purpose.
+2. CI: `.github/workflows/ci.yml` on macOS: `npm ci`, typecheck, lint, test, build. A second job `ui-smoke` runs the UI test with `continue-on-error: true` until it is seen passing on a runner.
+3. UI smoke test: `npm run e2e` (`scripts/e2e/smoke.cjs`) builds, opens the app on a temp repo, stages and commits through the UI (`scripts/e2e/flow-commit.js`), then checks `git log`, a clean status and that the screenshot is a real PNG (> 40 KB). Passes locally; the failure path was checked by asserting a wrong commit subject.
+4. Node: README said 24, but vitest/vite accept 22.12+, so `engines` is `^22.12.0 || ^24.0.0 || >=26.0.0` and `.nvmrc` pins 24 for CI and `fnm use`.
 
 ## Steps
 1. **Lint.** Add Biome (single dev dependency, fast, formatting + lint) or ESLint + typescript-eslint. Start with the recommended rules, fix or disable noisy ones in the config rather than reformatting the whole repo in one commit; add `npm run lint`. Update `CLAUDE.md` commands.
