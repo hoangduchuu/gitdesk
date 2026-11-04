@@ -20,3 +20,17 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+
+  # Opens the real window on a macOS runner. Not required until it has been seen passing there
+  # (a runner may not give the app a display session), so a failure here does not fail the build.
+  ui-smoke:
+    runs-on: macos-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run e2e

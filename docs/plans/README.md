@@ -13,7 +13,7 @@ Each plan is implemented step by step; every step ends with `npm run typecheck &
 | 7 | [Quality and CI](07-quality-and-ci.md) | No linter, no CI, no UI smoke test | S |
 | 8 | [Distribution](08-distribution.md) | Signing/notarization, Intel, Windows/Linux | L |
 
-Not planned yet: bisect.
+Status: plans 1-7 are implemented (see each plan's Status section). Plan 8 (distribution) is not started: it needs an Apple Developer account. Not planned yet: bisect.
 
 ## Conventions every plan follows
 
