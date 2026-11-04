@@ -6,6 +6,7 @@ import {
   REPO_METHODS,
   REPO_OPENED_CHANNEL,
   TERMINAL_EVENT_CHANNEL,
+  UPDATE_PROGRESS_CHANNEL,
   type MenuCommand
 } from '../shared/api'
 import type { CloneProfile, RecentRepo, Workspace } from '../shared/api'
@@ -114,7 +115,9 @@ function registerIpc(window: BrowserWindow): void {
       const info = await checkForUpdate(app.getVersion())
       // <bundle>.app/Contents/MacOS/GitDesk -> <bundle>.app
       const bundle = join(app.getPath('exe'), '..', '..', '..')
-      await installUpdate(info, bundle, () => app.quit())
+      await installUpdate(info, bundle, () => app.quit(), (progress) => {
+        if (!window.isDestroyed()) window.webContents.send(UPDATE_PROGRESS_CHANNEL, progress)
+      })
       return null
     })
   )
